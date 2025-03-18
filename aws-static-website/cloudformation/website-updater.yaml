@@ -101,7 +101,9 @@ Resources:
               - Effect: Allow
                 Action:
                   - cloudformation:DescribeStacks
-                Resource: !Sub 'arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${StackName}/*'
+                Resource: 
+                  - !Sub 'arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/static-website/*'
+                  - !Sub 'arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${StackName}/*'
               
               # Allow S3 operations for website content
               - Effect: Allow
@@ -112,6 +114,8 @@ Resources:
                 Resource: 
                   - !Sub 'arn:aws:s3:::${StackName}-website-${AWS::AccountId}'
                   - !Sub 'arn:aws:s3:::${StackName}-website-${AWS::AccountId}/*'
+                  - !Sub 'arn:aws:s3:::greateightgoals.com-website'
+                  - !Sub 'arn:aws:s3:::greateightgoals.com-website/*'
               
               # Allow CloudFront invalidations
               - Effect: Allow
