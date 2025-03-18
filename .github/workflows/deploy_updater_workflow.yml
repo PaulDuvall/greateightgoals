@@ -1,18 +1,18 @@
+# .github/workflows/deploy_updater_workflow.yml
 name: Deploy Website Updater
 
 on:
-  # Manual trigger using GitHub Actions UI
   workflow_dispatch:
     inputs:
       stack_name:
         description: 'CloudFormation stack name for the website updater'
         required: false
-        default: 'ovechkin-website-updater'
+        default: ''  # Empty default so we can compute dynamically
         type: string
       website_stack:
         description: 'Name of the static website CloudFormation stack'
         required: false
-        default: 'static-website'
+        default: ''  # Empty default so we can compute dynamically
         type: string
       region:
         description: 'AWS region'
@@ -42,8 +42,7 @@ on:
         options:
           - dev
           - prod
-  
-  # Trigger on push to any branch
+
   push:
     paths:
       - 'aws-static-website/**'
@@ -72,6 +71,34 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ inputs.region || 'us-east-1' }}
 
+      # Dynamically compute the stack name using the repo name if not provided
+      - name: Set default stack name if not provided
+        id: set_stack_name
+        shell: bash
+        run: |
+          repo_name="${GITHUB_REPOSITORY##*/}"
+          if [ -z "${{ github.event.inputs.stack_name }}" ]; then
+            dynamic_stack_name="${repo_name}-website-updater"
+          else
+            dynamic_stack_name="${{ github.event.inputs.stack_name }}"
+          fi
+          echo "Computed stack name: ${dynamic_stack_name}"
+          echo "stack_name=${dynamic_stack_name}" >> $GITHUB_OUTPUT
+
+      # Dynamically compute the website stack name using the repo name if not provided
+      - name: Set default website stack if not provided
+        id: set_website_stack
+        shell: bash
+        run: |
+          repo_name="${GITHUB_REPOSITORY##*/}"
+          if [ -z "${{ github.event.inputs.website_stack }}" ]; then
+            dynamic_website_stack="${repo_name}-static-website"
+          else
+            dynamic_website_stack="${{ github.event.inputs.website_stack }}"
+          fi
+          echo "Computed website_stack: ${dynamic_website_stack}"
+          echo "website_stack=${dynamic_website_stack}" >> $GITHUB_OUTPUT
+
       - name: Create build directory
         run: mkdir -p aws-static-website/build
 
@@ -91,14 +118,11 @@ jobs:
           mkdir -p "$TMP_DIR/static"
           cp -r aws-static-website/static/* "$TMP_DIR/static/" 2>/dev/null || echo "No static files found to copy"
 
-          # Copy the ovechkin_tracker module
+          # Copy the ovechkin_tracker module if it exists
           if [ -d "ovechkin_tracker" ]; then
             echo "Copying ovechkin_tracker module..."
-            # Create the module directory at the root level of the Lambda package
             mkdir -p "$TMP_DIR/ovechkin_tracker"
             cp -r ovechkin_tracker/* "$TMP_DIR/ovechkin_tracker/"
-            
-            # Create an __init__.py file if it doesn't exist to make it a proper Python package
             if [ ! -f "$TMP_DIR/ovechkin_tracker/__init__.py" ]; then
               echo "Creating __init__.py file for ovechkin_tracker module..."
               touch "$TMP_DIR/ovechkin_tracker/__init__.py"
@@ -115,14 +139,14 @@ jobs:
           zip -r -1 "$GITHUB_WORKSPACE/aws-static-website/build/lambda_package.zip" .
 
       - name: Deploy CloudFormation stack
-        if: ${{ !inputs.skip_cfn }}
+        if: ${{ !github.event.inputs.skip_cfn }}
         run: |
           echo "Deploying CloudFormation stack..."
           aws cloudformation deploy \
             --template-file aws-static-website/cloudformation/website-updater.yaml \
-            --stack-name ovechkin-website-updater \
+            --stack-name "${{ steps.set_stack_name.outputs.stack_name }}" \
             --parameter-overrides \
-              StackName=${{ inputs.website_stack || 'static-website' }} \
+              StackName=${{ steps.set_website_stack.outputs.website_stack }} \
               ScheduleExpression="${{ inputs.schedule || 'cron(0/30 * * * ? *)' }}" \
             --capabilities CAPABILITY_IAM \
             --region ${{ inputs.region || 'us-east-1' }} \
@@ -132,7 +156,7 @@ jobs:
         run: |
           echo "Updating Lambda function code..."
           aws lambda update-function-code \
-            --function-name ovechkin-website-updater \
+            --function-name "${{ steps.set_stack_name.outputs.stack_name }}" \
             --zip-file fileb://aws-static-website/build/lambda_package.zip \
             --region ${{ inputs.region || 'us-east-1' }}
 
@@ -140,17 +164,17 @@ jobs:
         run: |
           echo "Getting Lambda function details..."
           aws lambda get-function \
-            --function-name ovechkin-website-updater \
+            --function-name "${{ steps.set_stack_name.outputs.stack_name }}" \
             --query "Configuration.{FunctionName:FunctionName, Runtime:Runtime, Timeout:Timeout, MemorySize:MemorySize, LastModified:LastModified}" \
             --output table \
             --region ${{ inputs.region || 'us-east-1' }}
 
       - name: Get EventBridge rule details
-        if: ${{ !inputs.skip_cfn }}
+        if: ${{ !github.event.inputs.skip_cfn }}
         run: |
           echo "Getting EventBridge rule details..."
           aws events describe-rule \
-            --name ovechkin-website-update-schedule \
+            --name "${{ steps.set_stack_name.outputs.stack_name }}-update-schedule" \
             --query "{Name:Name, ScheduleExpression:ScheduleExpression, State:State}" \
             --output table \
             --region ${{ inputs.region || 'us-east-1' }}
