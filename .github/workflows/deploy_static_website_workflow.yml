@@ -235,71 +235,6 @@ jobs:
           
           echo "Stack deleted successfully."
 
-      # Create a modified CloudFormation template if using existing bucket
-      - name: Prepare CloudFormation template
-        id: prepare-template
-        run: |
-          # Create a temporary directory for the modified template
-          mkdir -p aws-static-website/build
-          
-          if [ "${{ steps.prepare-params.outputs.use_existing_bucket }}" = "true" ] && [ "${{ steps.prepare-params.outputs.bucket_exists }}" = "true" ]; then
-            echo "Preparing CloudFormation template to use existing S3 bucket..."
-            
-            # Create a modified template that doesn't include the S3 bucket resource
-            TEMPLATE_PATH="aws-static-website/templates/static-website.yaml"
-            MODIFIED_TEMPLATE_PATH="aws-static-website/build/static-website-modified.yaml"
-            
-            # Use Python to modify the template (more reliable than sed)
-            python3 -c '
-            import yaml
-            import sys
-            
-            # Load the template
-            with open(sys.argv[1], "r") as f:
-                template = yaml.safe_load(f)
-            
-            # Remove the S3 bucket resource and its policy
-            if "WebsiteBucket" in template["Resources"]:
-                del template["Resources"]["WebsiteBucket"]
-            
-            if "WebsiteBucketPolicy" in template["Resources"]:
-                del template["Resources"]["WebsiteBucketPolicy"]
-            
-            # Add a parameter for the existing bucket name
-            template["Parameters"]["ExistingBucketName"] = {
-                "Type": "String",
-                "Description": "Name of an existing S3 bucket to use"
-            }
-            
-            # Update references to the bucket in other resources
-            for resource_name, resource in template["Resources"].items():
-                if resource["Type"] == "AWS::CloudFront::Distribution":
-                    for origin in resource["Properties"]["DistributionConfig"]["Origins"]:
-                        if "S3OriginConfig" in origin:
-                            # Update the DomainName to use the parameter
-                            origin["DomainName"] = {"Fn::Join": ["", [
-                                {"Ref": "ExistingBucketName"},
-                                ".s3.",
-                                {"Ref": "AWS::Region"},
-                                ".amazonaws.com"
-                            ]]}
-            
-            # Update outputs
-            if "WebsiteBucketName" in template["Outputs"]:
-                template["Outputs"]["WebsiteBucketName"]["Value"] = {"Ref": "ExistingBucketName"}
-            
-            # Write the modified template
-            with open(sys.argv[2], "w") as f:
-                yaml.dump(template, f, default_flow_style=False)
-            ' "$TEMPLATE_PATH" "$MODIFIED_TEMPLATE_PATH"
-            
-            echo "template_path=$MODIFIED_TEMPLATE_PATH" >> $GITHUB_OUTPUT
-            echo "Modified CloudFormation template created successfully."
-          else
-            echo "Using original CloudFormation template."
-            echo "template_path=aws-static-website/templates/static-website.yaml" >> $GITHUB_OUTPUT
-          fi
-
       # Deploy CloudFormation stack
       - name: Deploy CloudFormation stack
         run: |
@@ -311,13 +246,77 @@ jobs:
                  CreateDnsRecord=${{ steps.prepare-params.outputs.create_dns_record }}"
           
           # Add ExistingBucketName parameter if using existing bucket
-          if [ "${{ steps.prepare-params.outputs.use_existing_bucket }}" = "true" ] && [ "${{ steps.prepare-params.outputs.bucket_exists }}" = "true" ]; then
+          if [ "${{ steps.prepare-params.outputs.bucket_exists }}" = "true" ]; then
+            echo "Using existing bucket: ${{ steps.prepare-params.outputs.bucket_name }}"
             PARAMS="$PARAMS ExistingBucketName=${{ steps.prepare-params.outputs.bucket_name }}"
+            
+            # Use the modified template that doesn't create a bucket
+            TEMPLATE_PATH="aws-static-website/build/static-website-modified.yaml"
+            
+            # Create the modified template if it doesn't exist yet
+            if [ ! -f "$TEMPLATE_PATH" ]; then
+              echo "Creating modified CloudFormation template..."
+              
+              # Create directory if it doesn't exist
+              mkdir -p aws-static-website/build
+              
+              # Use Python to modify the template
+              python3 -c '
+              import yaml
+              import sys
+              import os
+              
+              # Define template paths
+              original_template = "aws-static-website/templates/static-website.yaml"
+              modified_template = "aws-static-website/build/static-website-modified.yaml"
+              
+              # Load the template
+              with open(original_template, "r") as f:
+                  template = yaml.safe_load(f)
+              
+              # Remove the S3 bucket resource and its policy
+              if "WebsiteBucket" in template["Resources"]:
+                  del template["Resources"]["WebsiteBucket"]
+              
+              if "WebsiteBucketPolicy" in template["Resources"]:
+                  del template["Resources"]["WebsiteBucketPolicy"]
+              
+              # Add a parameter for the existing bucket name
+              template["Parameters"]["ExistingBucketName"] = {
+                  "Type": "String",
+                  "Description": "Name of an existing S3 bucket to use"
+              }
+              
+              # Update references to the bucket in other resources
+              for resource_name, resource in template["Resources"].items():
+                  if resource["Type"] == "AWS::CloudFront::Distribution":
+                      for origin in resource["Properties"]["DistributionConfig"]["Origins"]:
+                          if "S3OriginConfig" in origin:
+                              # Update the DomainName to use the parameter
+                              origin["DomainName"] = {"Fn::Join": ["", [
+                                  {"Ref": "ExistingBucketName"},
+                                  ".s3.",
+                                  {"Ref": "AWS::Region"},
+                                  ".amazonaws.com"
+                              ]]}
+              
+              # Update outputs
+              if "WebsiteBucketName" in template["Outputs"]:
+                  template["Outputs"]["WebsiteBucketName"]["Value"] = {"Ref": "ExistingBucketName"}
+              
+              # Write the modified template
+              with open(modified_template, "w") as f:
+                  yaml.dump(template, f, default_flow_style=False)
+              '
+            fi
+          else
+            # Use the original template
+            TEMPLATE_PATH="aws-static-website/templates/static-website.yaml"
           fi
           
           # Deploy the stack with appropriate parameters
           aws cloudformation deploy \
-            --template-file ${{ steps.prepare-template.outputs.template_path }} \
+            --template-file "$TEMPLATE_PATH" \
             --stack-name ${{ steps.prepare-params.outputs.stack_name }} \
             --parameter-overrides $PARAMS \
             --capabilities CAPABILITY_IAM \
