@@ -9,6 +9,11 @@ on:
         required: false
         default: 'greateightgoals.com'
         type: string
+      stack_name:
+        description: 'CloudFormation stack name for the static website'
+        required: false
+        default: 'static-website'
+        type: string
       force_bucket_recreation:
         description: 'Force recreation of S3 bucket'
         required: false
@@ -65,6 +70,11 @@ jobs:
           # Add domain name if specified
           if [[ -n "${{ inputs.domain_name }}" ]]; then
             CMD="$CMD --domain-name ${{ inputs.domain_name }}"
+          fi
+          
+          # Add stack name if specified
+          if [[ -n "${{ inputs.stack_name }}" ]]; then
+            CMD="$CMD --stack-name ${{ inputs.stack_name }}"
           fi
           
           # Add force bucket recreation if true
