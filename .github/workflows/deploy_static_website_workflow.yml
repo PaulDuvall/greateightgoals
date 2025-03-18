@@ -1,0 +1,437 @@
+name: Deploy Static Website
+
+on:
+  # Manual trigger using GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      domain_name:
+        description: 'Domain name for the website (e.g., example.com)'
+        required: true
+        type: string
+      hosted_zone_id:
+        description: 'Route 53 Hosted Zone ID for the domain (optional, will be auto-detected if not provided)'
+        required: false
+        type: string
+      stack_name:
+        description: 'CloudFormation stack name'
+        required: false
+        default: 'static-website'
+        type: string
+      region:
+        description: 'AWS region'
+        required: false
+        default: 'us-east-1'
+        type: string
+      skip_content_upload:
+        description: 'Skip uploading content to S3 bucket'
+        required: false
+        default: false
+        type: boolean
+      skip_dns_record:
+        description: 'Skip creating/updating Route 53 DNS record'
+        required: false
+        default: false
+        type: boolean
+      update_dns_record:
+        description: 'Update existing Route 53 DNS record'
+        required: false
+        default: true
+        type: boolean
+      force_bucket_recreation:
+        description: 'Force recreation of the S3 bucket if it already exists'
+        required: false
+        default: false
+        type: boolean
+      environment:
+        description: 'Environment (dev/prod) - for reference only, not used in stack naming'
+        required: false
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+  
+  # Trigger on push to specific paths
+  push:
+    paths:
+      - 'aws-static-website/templates/**'
+      - 'aws-static-website/static/**'
+      - '.github/workflows/deploy_static_website_workflow.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # Required for OIDC authentication
+      contents: read    # Required to checkout the repository
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ inputs.region || 'us-east-1' }}
+
+      # Prepare parameters for CloudFormation deployment
+      - name: Prepare deployment parameters
+        id: prepare-params
+        run: |
+          # Set default values
+          DOMAIN_NAME="${{ inputs.domain_name }}"
+          STACK_NAME="${{ inputs.stack_name || 'static-website' }}"
+          REGION="${{ inputs.region || 'us-east-1' }}"
+          CREATE_DNS_RECORD="${{ inputs.skip_dns_record == true && 'false' || 'true' }}"
+          
+          # Auto-detect hosted zone ID if not provided
+          if [ -z "${{ inputs.hosted_zone_id }}" ]; then
+            echo "Hosted zone ID not provided. Attempting to auto-detect..."
+            
+            # Try to find the exact domain
+            HOSTED_ZONE_ID=$(aws route53 list-hosted-zones-by-name 
+                --dns-name "$DOMAIN_NAME." 
+                --query "HostedZones[?Name=='$DOMAIN_NAME.'].Id" 
+                --output text 
+                --region $REGION | sed 's|/hostedzone/||')
+            
+            # If not found, try to find the parent domain
+            if [ -z "$HOSTED_ZONE_ID" ]; then
+                # Split the domain by dots and remove subdomains one by one
+                IFS='.' read -ra DOMAIN_PARTS <<< "$DOMAIN_NAME"
+                DOMAIN_PARTS_COUNT=${#DOMAIN_PARTS[@]}
+                
+                if [ $DOMAIN_PARTS_COUNT -gt 1 ]; then
+                    # Try with the parent domain (e.g., example.com for sub.example.com)
+                    PARENT_DOMAIN="${DOMAIN_PARTS[$(($DOMAIN_PARTS_COUNT-2))]}.${DOMAIN_PARTS[$(($DOMAIN_PARTS_COUNT-1))]}"
+                    
+                    HOSTED_ZONE_ID=$(aws route53 list-hosted-zones-by-name 
+                        --dns-name "$PARENT_DOMAIN." 
+                        --query "HostedZones[?Name=='$PARENT_DOMAIN.'].Id" 
+                        --output text 
+                        --region $REGION | sed 's|/hostedzone/||')
+                fi
+            fi
+            
+            if [ -z "$HOSTED_ZONE_ID" ]; then
+                echo "::error::Could not automatically determine the hosted zone ID for $DOMAIN_NAME"
+                exit 1
+            else
+                echo "Found hosted zone ID: $HOSTED_ZONE_ID for domain: $DOMAIN_NAME"
+                echo "hosted_zone_id=$HOSTED_ZONE_ID" >> $GITHUB_OUTPUT
+            fi
+          else
+            HOSTED_ZONE_ID="${{ inputs.hosted_zone_id }}"
+            echo "hosted_zone_id=$HOSTED_ZONE_ID" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check if DNS record already exists and set flag accordingly
+          if [ "$CREATE_DNS_RECORD" = "true" ]; then
+              echo "Checking if DNS record already exists..."
+              EXISTING_RECORD=$(aws route53 list-resource-record-sets 
+                  --hosted-zone-id $HOSTED_ZONE_ID 
+                  --query "ResourceRecordSets[?Name=='$DOMAIN_NAME.' && Type=='A']" 
+                  --output text 
+                  --region $REGION)
+              
+              if [ -n "$EXISTING_RECORD" ]; then
+                  echo "DNS record for $DOMAIN_NAME already exists."
+                  if [ "${{ inputs.update_dns_record == true }}" = "true" ]; then
+                      echo "Will update the existing DNS record after CloudFront deployment."
+                      CREATE_DNS_RECORD="false"
+                  else
+                      echo "Setting --skip-dns-record flag. Existing DNS record will remain unchanged."
+                      CREATE_DNS_RECORD="false"
+                  fi
+              fi
+          fi
+          
+          # Check if the S3 bucket already exists
+          BUCKET_NAME="${DOMAIN_NAME}-website"
+          BUCKET_EXISTS=$(aws s3api head-bucket --bucket "$BUCKET_NAME" 2>&1 || true)
+          
+          if [[ -z "$BUCKET_EXISTS" ]]; then
+              echo "S3 bucket '$BUCKET_NAME' already exists."
+              
+              # If force-bucket-recreation is set, delete the existing bucket
+              if [ "${{ inputs.force_bucket_recreation == true }}" = "true" ]; then
+                  echo "--force-bucket-recreation flag is set. Deleting existing bucket..."
+                  
+                  # First, empty the bucket
+                  echo "Emptying bucket contents..."
+                  aws s3 rm s3://$BUCKET_NAME/ --recursive --region $REGION
+                  
+                  # Delete the bucket
+                  echo "Deleting bucket..."
+                  aws s3api delete-bucket --bucket $BUCKET_NAME --region $REGION
+                  
+                  echo "Bucket deleted successfully. It will be recreated during stack deployment."
+                  
+                  # Wait a moment for AWS to fully process the deletion
+                  echo "Waiting for bucket deletion to complete..."
+                  sleep 5
+              else
+                  echo "Using existing bucket."
+              fi
+          fi
+          
+          # Set outputs for use in later steps
+          echo "domain_name=$DOMAIN_NAME" >> $GITHUB_OUTPUT
+          echo "stack_name=$STACK_NAME" >> $GITHUB_OUTPUT
+          echo "region=$REGION" >> $GITHUB_OUTPUT
+          echo "create_dns_record=$CREATE_DNS_RECORD" >> $GITHUB_OUTPUT
+          echo "bucket_name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+
+      # Deploy CloudFormation stack
+      - name: Deploy CloudFormation stack
+        run: |
+          echo "Deploying CloudFormation stack..."
+          aws cloudformation deploy 
+            --template-file aws-static-website/templates/static-website.yaml 
+            --stack-name ${{ steps.prepare-params.outputs.stack_name }} 
+            --parameter-overrides 
+              DomainName=${{ steps.prepare-params.outputs.domain_name }} 
+              HostedZoneId=${{ steps.prepare-params.outputs.hosted_zone_id }} 
+              CreateDnsRecord=${{ steps.prepare-params.outputs.create_dns_record }} 
+            --capabilities CAPABILITY_IAM 
+            --region ${{ steps.prepare-params.outputs.region }} 
+            --no-fail-on-empty-changeset
+
+      # Get CloudFormation stack outputs
+      - name: Get CloudFormation stack outputs
+        id: stack-outputs
+        run: |
+          echo "Getting CloudFormation stack outputs..."
+          
+          # Get the S3 bucket name from CloudFormation outputs
+          S3_BUCKET=$(aws cloudformation describe-stacks 
+            --stack-name ${{ steps.prepare-params.outputs.stack_name }} 
+            --query "Stacks[0].Outputs[?OutputKey=='WebsiteBucketName'].OutputValue" 
+            --output text 
+            --region ${{ steps.prepare-params.outputs.region }})
+          
+          # Get the CloudFront distribution ID from CloudFormation outputs
+          CLOUDFRONT_DIST_ID=$(aws cloudformation describe-stacks 
+            --stack-name ${{ steps.prepare-params.outputs.stack_name }} 
+            --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionId'].OutputValue" 
+            --output text 
+            --region ${{ steps.prepare-params.outputs.region }})
+          
+          # Get the CloudFront domain name from CloudFormation outputs
+          CLOUDFRONT_DOMAIN=$(aws cloudformation describe-stacks 
+            --stack-name ${{ steps.prepare-params.outputs.stack_name }} 
+            --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDomainName'].OutputValue" 
+            --output text 
+            --region ${{ steps.prepare-params.outputs.region }})
+          
+          # Set outputs for use in later steps
+          echo "s3_bucket=$S3_BUCKET" >> $GITHUB_OUTPUT
+          echo "cloudfront_dist_id=$CLOUDFRONT_DIST_ID" >> $GITHUB_OUTPUT
+          echo "cloudfront_domain=$CLOUDFRONT_DOMAIN" >> $GITHUB_OUTPUT
+          
+          echo "Stack outputs retrieved successfully:"
+          echo "S3 Bucket: $S3_BUCKET"
+          echo "CloudFront Distribution ID: $CLOUDFRONT_DIST_ID"
+          echo "CloudFront Domain: $CLOUDFRONT_DOMAIN"
+
+      # Upload static content to S3
+      - name: Upload static content to S3
+        if: ${{ inputs.skip_content_upload != true }}
+        run: |
+          echo "Uploading static content to S3 bucket..."
+          
+          # Check if the static content directory exists
+          if [ -d "aws-static-website/static" ]; then
+            # Copy static content to S3 with appropriate content types
+            aws s3 sync aws-static-website/static/ s3://${{ steps.stack-outputs.outputs.s3_bucket }}/ 
+              --delete 
+              --region ${{ steps.prepare-params.outputs.region }} 
+              --cache-control "max-age=3600" 
+              --content-type "text/html" 
+              --exclude "*" 
+              --include "*.html"
+            
+            aws s3 sync aws-static-website/static/ s3://${{ steps.stack-outputs.outputs.s3_bucket }}/ 
+              --delete 
+              --region ${{ steps.prepare-params.outputs.region }} 
+              --cache-control "max-age=86400" 
+              --content-type "text/css" 
+              --exclude "*" 
+              --include "*.css"
+            
+            aws s3 sync aws-static-website/static/ s3://${{ steps.stack-outputs.outputs.s3_bucket }}/ 
+              --delete 
+              --region ${{ steps.prepare-params.outputs.region }} 
+              --cache-control "max-age=86400" 
+              --content-type "application/javascript" 
+              --exclude "*" 
+              --include "*.js"
+            
+            aws s3 sync aws-static-website/static/ s3://${{ steps.stack-outputs.outputs.s3_bucket }}/ 
+              --delete 
+              --region ${{ steps.prepare-params.outputs.region }} 
+              --cache-control "max-age=604800" 
+              --exclude "*.html" 
+              --exclude "*.css" 
+              --exclude "*.js"
+            
+            echo "Static content uploaded successfully."
+          else
+            echo "Static content directory not found. Skipping content upload."
+          fi
+
+      # Create CloudFront invalidation
+      - name: Create CloudFront invalidation
+        if: ${{ inputs.skip_content_upload != true }}
+        run: |
+          echo "Creating CloudFront invalidation..."
+          
+          # Create invalidation for all paths
+          INVALIDATION_ID=$(aws cloudfront create-invalidation 
+            --distribution-id ${{ steps.stack-outputs.outputs.cloudfront_dist_id }} 
+            --paths "/*" 
+            --query "Invalidation.Id" 
+            --output text 
+            --region ${{ steps.prepare-params.outputs.region }})
+          
+          echo "CloudFront invalidation created: $INVALIDATION_ID"
+          
+          # Wait for invalidation to complete
+          echo "Waiting for invalidation to complete..."
+          aws cloudfront wait invalidation-completed 
+            --distribution-id ${{ steps.stack-outputs.outputs.cloudfront_dist_id }} 
+            --id $INVALIDATION_ID 
+            --region ${{ steps.prepare-params.outputs.region }}
+          
+          echo "CloudFront invalidation completed."
+
+      # Update DNS records if needed
+      - name: Update DNS records
+        if: ${{ inputs.skip_dns_record != true && inputs.update_dns_record == true && steps.prepare-params.outputs.create_dns_record == 'false' }}
+        run: |
+          echo "Updating existing DNS records to point to the new CloudFront distribution..."
+          
+          # Create a temporary JSON file for the change batch
+          TEMP_FILE=$(mktemp)
+          
+          # Create change batch for A record
+          cat > $TEMP_FILE << EOF
+          {
+            "Changes": [
+              {
+                "Action": "UPSERT",
+                "ResourceRecordSet": {
+                  "Name": "${{ steps.prepare-params.outputs.domain_name }}",
+                  "Type": "A",
+                  "AliasTarget": {
+                    "HostedZoneId": "Z2FDTNDATAQYW2",
+                    "DNSName": "${{ steps.stack-outputs.outputs.cloudfront_domain }}",
+                    "EvaluateTargetHealth": false
+                  }
+                }
+              }
+            ]
+          }
+          EOF
+          
+          # Apply the change batch for A record
+          aws route53 change-resource-record-sets 
+            --hosted-zone-id ${{ steps.prepare-params.outputs.hosted_zone_id }} 
+            --change-batch file://$TEMP_FILE 
+            --region ${{ steps.prepare-params.outputs.region }}
+          
+          # Create change batch for AAAA record
+          cat > $TEMP_FILE << EOF
+          {
+            "Changes": [
+              {
+                "Action": "UPSERT",
+                "ResourceRecordSet": {
+                  "Name": "${{ steps.prepare-params.outputs.domain_name }}",
+                  "Type": "AAAA",
+                  "AliasTarget": {
+                    "HostedZoneId": "Z2FDTNDATAQYW2",
+                    "DNSName": "${{ steps.stack-outputs.outputs.cloudfront_domain }}",
+                    "EvaluateTargetHealth": false
+                  }
+                }
+              }
+            ]
+          }
+          EOF
+          
+          # Apply the change batch for AAAA record
+          aws route53 change-resource-record-sets 
+            --hosted-zone-id ${{ steps.prepare-params.outputs.hosted_zone_id }} 
+            --change-batch file://$TEMP_FILE 
+            --region ${{ steps.prepare-params.outputs.region }}
+          
+          # Create change batch for www A record
+          cat > $TEMP_FILE << EOF
+          {
+            "Changes": [
+              {
+                "Action": "UPSERT",
+                "ResourceRecordSet": {
+                  "Name": "www.${{ steps.prepare-params.outputs.domain_name }}",
+                  "Type": "A",
+                  "AliasTarget": {
+                    "HostedZoneId": "Z2FDTNDATAQYW2",
+                    "DNSName": "${{ steps.stack-outputs.outputs.cloudfront_domain }}",
+                    "EvaluateTargetHealth": false
+                  }
+                }
+              }
+            ]
+          }
+          EOF
+          
+          # Apply the change batch for www A record
+          aws route53 change-resource-record-sets 
+            --hosted-zone-id ${{ steps.prepare-params.outputs.hosted_zone_id }} 
+            --change-batch file://$TEMP_FILE 
+            --region ${{ steps.prepare-params.outputs.region }}
+          
+          # Create change batch for www AAAA record
+          cat > $TEMP_FILE << EOF
+          {
+            "Changes": [
+              {
+                "Action": "UPSERT",
+                "ResourceRecordSet": {
+                  "Name": "www.${{ steps.prepare-params.outputs.domain_name }}",
+                  "Type": "AAAA",
+                  "AliasTarget": {
+                    "HostedZoneId": "Z2FDTNDATAQYW2",
+                    "DNSName": "${{ steps.stack-outputs.outputs.cloudfront_domain }}",
+                    "EvaluateTargetHealth": false
+                  }
+                }
+              }
+            ]
+          }
+          EOF
+          
+          # Apply the change batch for www AAAA record
+          aws route53 change-resource-record-sets 
+            --hosted-zone-id ${{ steps.prepare-params.outputs.hosted_zone_id }} 
+            --change-batch file://$TEMP_FILE 
+            --region ${{ steps.prepare-params.outputs.region }}
+          
+          # Clean up
+          rm $TEMP_FILE
+          
+          echo "DNS records updated successfully."
+
+      # Display deployment summary
+      - name: Deployment summary
+        run: |
+          echo "=== Static Website Deployment Summary ==="
+          echo "Domain: ${{ steps.prepare-params.outputs.domain_name }}"
+          echo "CloudFront URL: https://${{ steps.stack-outputs.outputs.cloudfront_domain }}"
+          echo "S3 Bucket: ${{ steps.stack-outputs.outputs.s3_bucket }}"
+          echo "CloudFront Distribution ID: ${{ steps.stack-outputs.outputs.cloudfront_dist_id }}"
+          echo "Stack Name: ${{ steps.prepare-params.outputs.stack_name }}"
+          echo "Region: ${{ steps.prepare-params.outputs.region }}"
+          echo "======================================="
