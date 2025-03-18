@@ -165,9 +165,6 @@ jobs:
             CMD="$CMD ${{ inputs.additional_args }}"
           fi
           
-          # Add capability flags for CloudFormation
-          CMD="$CMD --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM"
-          
           # Execute the command
           echo "Executing: $CMD"
           eval "$CMD"
