@@ -46,12 +46,43 @@ Parameters:
     Type: String
     Default: ovechkin-website-updater-errors
     Description: Name of the SNS Topic for error notifications (must be unique across all stacks)
+    
+  FunctionName:
+    Type: String
+    Default: ovechkin-website-updater
+    Description: Name of the Lambda function for website updates
+    
+  RuleName:
+    Type: String
+    Default: ovechkin-website-update-schedule
+    Description: Name of the EventBridge rule for scheduled updates
+    
+  QueueName:
+    Type: String
+    Default: ovechkin-error-notification-dlq
+    Description: Name of the SQS Dead Letter Queue for failed SNS deliveries
+    
+  RoleName:
+    Type: String
+    Default: ovechkin-website-updater-role
+    Description: Name of the IAM role for the Lambda function
+    
+  MetricName:
+    Type: String
+    Default: OvechkinUpdaterErrorCount
+    Description: Name of the CloudWatch metric for Lambda function errors
+    
+  AlarmName:
+    Type: String
+    Default: ovechkin-website-updater-error-alarm
+    Description: Name of the CloudWatch alarm for Lambda function errors
 
 Resources:
   # Lambda execution role
   WebsiteUpdaterRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: !Ref RoleName
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -116,7 +147,7 @@ Resources:
     Type: AWS::Lambda::Function
     DependsOn: WebsiteUpdaterRole
     Properties:
-      FunctionName: ovechkin-website-updater
+      FunctionName: !Ref FunctionName
       Description: Lambda function to update the Ovechkin Goal Tracker website with latest stats
       Runtime: python3.11
       Handler: update_website_lambda.lambda_handler
@@ -138,7 +169,7 @@ Resources:
     Type: AWS::Events::Rule
     DependsOn: WebsiteUpdaterFunction
     Properties:
-      Name: ovechkin-website-update-schedule
+      Name: !Ref RuleName
       Description: Schedule for updating the Ovechkin Goal Tracker website
       ScheduleExpression: !Ref ScheduleExpression
       State: ENABLED
@@ -162,7 +193,7 @@ Resources:
   ErrorNotificationDLQ:
     Type: AWS::SQS::Queue
     Properties:
-      QueueName: ovechkin-error-notification-dlq
+      QueueName: !Ref QueueName
       MessageRetentionPeriod: 1209600  # 14 days
       Tags:
         - Key: Project
@@ -220,7 +251,7 @@ Resources:
       LogGroupName: !Sub '/aws/lambda/${WebsiteUpdaterFunction}'
       FilterPattern: '?ERROR ?CRITICAL'
       MetricTransformations:
-        - MetricName: OvechkinUpdaterErrorCount
+        - MetricName: !Ref MetricName
           MetricNamespace: OvechkinGoalTracker
           MetricValue: '1'
 
@@ -229,11 +260,11 @@ Resources:
     Type: AWS::CloudWatch::Alarm
     DependsOn: ErrorMetricFilter
     Properties:
-      AlarmName: ovechkin-website-updater-error-alarm
+      AlarmName: !Ref AlarmName
       AlarmDescription: Alarm for errors in the Ovechkin Website Updater Lambda function
       ComparisonOperator: GreaterThanOrEqualToThreshold
       EvaluationPeriods: !Ref EvaluationPeriod
-      MetricName: OvechkinUpdaterErrorCount
+      MetricName: !Ref MetricName
       Namespace: OvechkinGoalTracker
       Period: 60  # 1 minute
       Statistic: Sum
