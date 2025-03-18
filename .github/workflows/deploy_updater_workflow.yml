@@ -177,7 +177,7 @@ jobs:
               RoleName="${{ steps.set_stack_name.outputs.stack_name }}-role" \
               MetricName="${{ steps.set_stack_name.outputs.stack_name }}ErrorCount" \
               AlarmName="${{ steps.set_stack_name.outputs.stack_name }}-error-alarm" \
-            --capabilities CAPABILITY_IAM \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
             --region ${{ inputs.region || 'us-east-1' }} \
             --no-fail-on-empty-changeset
 
