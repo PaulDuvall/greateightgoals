@@ -1,0 +1,15 @@
+# .github/workflows/simple.yml
+name: Simple Workflow
+
+on: 
+  push:   # Triggers the workflow on every push to the repository
+    branches:
+      - main
+
+jobs:
+  say-hello:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Print Hello World
+        run: echo "Hello, World!"

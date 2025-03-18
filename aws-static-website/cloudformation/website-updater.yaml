@@ -1,0 +1,269 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation template for scheduled Ovechkin Goal Tracker website updates with comprehensive monitoring'
+
+Parameters:
+  StackName:
+    Type: String
+    Default: static-website
+    Description: Name of the static website CloudFormation stack
+  
+  ScheduleExpression:
+    Type: String
+    Default: cron(0 * * * ? *)
+    Description: |
+      Schedule expression for the EventBridge rule. Examples:
+      - rate(3 minutes) - Run every 3 minutes
+      - rate(15 minutes) - Run every 15 minutes
+      - rate(1 hour) - Run every hour
+      - rate(1 day) - Run every day
+      - cron(0 * * * ? *) - Run at the top of every hour (00:00)
+      - cron(15 * * * ? *) - Run at 15 minutes past every hour (00:15)
+      - cron(0/30 * * * ? *) - Run every 30 minutes, starting at the top of the hour (00:00, 00:30)
+      - cron(0,30 * * * ? *) - Run at the top and half of every hour (00:00, 00:30)
+      - cron(0 0/2 * * ? *) - Run every 2 hours, starting at midnight UTC (00:00, 02:00, 04:00...)
+      - cron(0 12 * * ? *) - Run at 12:00 PM UTC every day
+  
+  NotificationEmail:
+    Type: String
+    Default: ''
+    Description: Email address to receive error notifications (leave empty to disable)
+    AllowedPattern: '^$|^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    ConstraintDescription: Must be a valid email address or empty
+
+  ErrorThreshold:
+    Type: Number
+    Default: 1
+    Description: Number of errors that will trigger the CloudWatch alarm
+    MinValue: 1
+
+  EvaluationPeriod:
+    Type: Number
+    Default: 1
+    Description: Number of periods to evaluate for the alarm
+    MinValue: 1
+
+Resources:
+  # Lambda execution role
+  WebsiteUpdaterRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: WebsiteUpdaterPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Allow reading CloudFormation stack outputs
+              - Effect: Allow
+                Action:
+                  - cloudformation:DescribeStacks
+                Resource: !Sub 'arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${StackName}/*'
+              
+              # Allow S3 operations for website content
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource: '*'  # Will be restricted at runtime to the specific bucket
+              
+              # Allow CloudFront invalidations
+              - Effect: Allow
+                Action:
+                  - cloudfront:CreateInvalidation
+                Resource: '*'  # Will be restricted at runtime to the specific distribution
+              
+              # Allow publishing to SNS topic
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref ErrorNotificationTopic
+              
+              # Allow SQS operations for Dead Letter Queue
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt ErrorNotificationDLQ.Arn
+              
+              # Allow CloudWatch operations for logging and metrics
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: 
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*'
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*:*'
+
+  # Lambda function for website updates
+  WebsiteUpdaterFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: WebsiteUpdaterRole
+    Properties:
+      FunctionName: ovechkin-website-updater
+      Description: Lambda function to update the Ovechkin Goal Tracker website with latest stats
+      Runtime: python3.11
+      Handler: update_website_lambda.lambda_handler
+      Role: !GetAtt WebsiteUpdaterRole.Arn
+      Timeout: 300  # 5 minutes
+      MemorySize: 256  # 256 MB
+      Environment:
+        Variables:
+          STACK_NAME: !Ref StackName
+          SNS_TOPIC_ARN: !Ref ErrorNotificationTopic
+      Code:
+        ZipFile: |
+          # This is a placeholder. The actual code will be deployed separately.
+          def lambda_handler(event, context):
+              return {'statusCode': 200, 'body': 'Placeholder function'}
+
+  # EventBridge rule for scheduled execution
+  WebsiteUpdaterSchedule:
+    Type: AWS::Events::Rule
+    DependsOn: WebsiteUpdaterFunction
+    Properties:
+      Name: ovechkin-website-update-schedule
+      Description: Schedule for updating the Ovechkin Goal Tracker website
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Id: WebsiteUpdaterFunction
+          Arn: !GetAtt WebsiteUpdaterFunction.Arn
+
+  # Permission for EventBridge to invoke Lambda
+  WebsiteUpdaterPermission:
+    Type: AWS::Lambda::Permission
+    DependsOn: WebsiteUpdaterFunction
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WebsiteUpdaterFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt WebsiteUpdaterSchedule.Arn
+
+  # ===== MONITORING RESOURCES =====
+
+  # Dead Letter Queue for failed SNS deliveries
+  ErrorNotificationDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: ovechkin-error-notification-dlq
+      MessageRetentionPeriod: 1209600  # 14 days
+      Tags:
+        - Key: Project
+          Value: OvechkinGoalTracker
+        - Key: Component
+          Value: Monitoring
+
+  # SNS Topic for error notifications
+  ErrorNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: ovechkin-website-updater-errors
+      DisplayName: Ovechkin Website Updater Errors
+      Tags:
+        - Key: Project
+          Value: OvechkinGoalTracker
+        - Key: Component
+          Value: Monitoring
+
+  # SNS Topic Policy to allow CloudWatch to publish to the topic
+  ErrorNotificationTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics:
+        - !Ref ErrorNotificationTopic
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: cloudwatch.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref ErrorNotificationTopic
+
+  # SNS Subscription for email notifications
+  ErrorNotificationSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasNotificationEmail
+    Properties:
+      Protocol: email
+      Endpoint: !Ref NotificationEmail
+      TopicArn: !Ref ErrorNotificationTopic
+      FilterPolicy:
+        severity:
+          - ERROR
+          - CRITICAL
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ErrorNotificationDLQ.Arn
+
+  # CloudWatch Logs Metric Filter for errors
+  ErrorMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    DependsOn: WebsiteUpdaterFunction
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${WebsiteUpdaterFunction}'
+      FilterPattern: '?ERROR ?CRITICAL'
+      MetricTransformations:
+        - MetricName: OvechkinUpdaterErrorCount
+          MetricNamespace: OvechkinGoalTracker
+          MetricValue: '1'
+
+  # CloudWatch Alarm for errors
+  ErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    DependsOn: ErrorMetricFilter
+    Properties:
+      AlarmName: ovechkin-website-updater-error-alarm
+      AlarmDescription: Alarm for errors in the Ovechkin Website Updater Lambda function
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      EvaluationPeriods: !Ref EvaluationPeriod
+      MetricName: OvechkinUpdaterErrorCount
+      Namespace: OvechkinGoalTracker
+      Period: 60  # 1 minute
+      Statistic: Sum
+      Threshold: !Ref ErrorThreshold
+      ActionsEnabled: true
+      AlarmActions:
+        - !Ref ErrorNotificationTopic
+      TreatMissingData: notBreaching
+      Tags:
+        - Key: Project
+          Value: OvechkinGoalTracker
+        - Key: Component
+          Value: Monitoring
+
+Outputs:
+  WebsiteUpdaterFunction:
+    Description: Lambda function for updating the Ovechkin Goal Tracker website
+    Value: !Ref WebsiteUpdaterFunction
+  
+  WebsiteUpdaterSchedule:
+    Description: EventBridge rule for scheduled website updates
+    Value: !Ref WebsiteUpdaterSchedule
+  
+  ErrorNotificationTopic:
+    Description: SNS Topic for error notifications
+    Value: !Ref ErrorNotificationTopic
+  
+  ErrorAlarm:
+    Description: CloudWatch Alarm for Lambda function errors
+    Value: !Ref ErrorAlarm
+  
+  ErrorNotificationDLQ:
+    Description: Dead Letter Queue for failed SNS deliveries
+    Value: !GetAtt ErrorNotificationDLQ.Arn
+
+Conditions:
+  HasNotificationEmail:
+    !Not [ !Equals [ !Ref NotificationEmail, '' ] ]

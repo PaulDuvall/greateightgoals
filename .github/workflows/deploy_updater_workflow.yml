@@ -1,0 +1,157 @@
+name: Deploy Website Updater
+
+on:
+  # Manual trigger using GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      stack_name:
+        description: 'CloudFormation stack name for the website updater'
+        required: false
+        default: 'ovechkin-website-updater'
+        type: string
+      website_stack:
+        description: 'Name of the static website CloudFormation stack'
+        required: false
+        default: 'static-website'
+        type: string
+      region:
+        description: 'AWS region'
+        required: false
+        default: 'us-east-1'
+        type: string
+      schedule:
+        description: |
+          Schedule expression for updates. Examples:
+          - cron(0 * * * ? *) - Run at the top of every hour (00:00)
+          - cron(15 * * * ? *) - Run at 15 minutes past every hour (00:15)
+          - cron(0/30 * * * ? *) - Run every 30 minutes, starting at the top of the hour
+          - rate(30 minutes) - Run every 30 minutes (not synchronized to clock)
+        required: false
+        default: 'cron(0/30 * * * ? *)'
+        type: string
+      skip_cfn:
+        description: 'Skip CloudFormation deployment (only update Lambda code)'
+        required: false
+        default: false
+        type: boolean
+      environment:
+        description: 'Environment (dev/prod) - for reference only, not used in stack naming'
+        required: false
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+  
+  # Trigger on push to any branch
+  push:
+    paths:
+      - 'aws-static-website/**'
+      - 'ovechkin_tracker/**'
+      - '.github/workflows/deploy_updater_workflow.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # Required for OIDC authentication
+      contents: read    # Required to checkout the repository
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ inputs.region || 'us-east-1' }}
+
+      - name: Create build directory
+        run: mkdir -p aws-static-website/build
+
+      - name: Build Lambda deployment package
+        run: |
+          # Create a temporary directory for packaging
+          TMP_DIR=$(mktemp -d)
+          echo "Using temporary directory: $TMP_DIR"
+
+          # Copy Lambda function code
+          cp aws-static-website/lambda/update_website_lambda.py "$TMP_DIR/"
+
+          # Copy the update_website.py script
+          cp aws-static-website/update_website.py "$TMP_DIR/"
+
+          # Create a directory structure for the static content
+          mkdir -p "$TMP_DIR/static"
+          cp -r aws-static-website/static/* "$TMP_DIR/static/" 2>/dev/null || echo "No static files found to copy"
+
+          # Copy the ovechkin_tracker module
+          if [ -d "ovechkin_tracker" ]; then
+            echo "Copying ovechkin_tracker module..."
+            # Create the module directory at the root level of the Lambda package
+            mkdir -p "$TMP_DIR/ovechkin_tracker"
+            cp -r ovechkin_tracker/* "$TMP_DIR/ovechkin_tracker/"
+            
+            # Create an __init__.py file if it doesn't exist to make it a proper Python package
+            if [ ! -f "$TMP_DIR/ovechkin_tracker/__init__.py" ]; then
+              echo "Creating __init__.py file for ovechkin_tracker module..."
+              touch "$TMP_DIR/ovechkin_tracker/__init__.py"
+            fi
+          fi
+
+          # Install dependencies - optimize by only installing what's needed
+          echo "Installing dependencies..."
+          pip install --no-cache-dir -r aws-static-website/lambda/requirements-lambda.txt -t "$TMP_DIR"
+
+          # Create zip file - optimize compression level for speed
+          echo "Creating deployment package..."
+          cd "$TMP_DIR"
+          zip -r -1 "$GITHUB_WORKSPACE/aws-static-website/build/lambda_package.zip" .
+
+      - name: Deploy CloudFormation stack
+        if: ${{ !inputs.skip_cfn }}
+        run: |
+          echo "Deploying CloudFormation stack..."
+          aws cloudformation deploy \
+            --template-file aws-static-website/cloudformation/website-updater.yaml \
+            --stack-name ovechkin-website-updater \
+            --parameter-overrides \
+              StackName=${{ inputs.website_stack || 'static-website' }} \
+              ScheduleExpression="${{ inputs.schedule || 'cron(0/30 * * * ? *)' }}" \
+            --capabilities CAPABILITY_IAM \
+            --region ${{ inputs.region || 'us-east-1' }} \
+            --no-fail-on-empty-changeset
+
+      - name: Update Lambda function code
+        run: |
+          echo "Updating Lambda function code..."
+          aws lambda update-function-code \
+            --function-name ovechkin-website-updater \
+            --zip-file fileb://aws-static-website/build/lambda_package.zip \
+            --region ${{ inputs.region || 'us-east-1' }}
+
+      - name: Get Lambda function details
+        run: |
+          echo "Getting Lambda function details..."
+          aws lambda get-function \
+            --function-name ovechkin-website-updater \
+            --query "Configuration.{FunctionName:FunctionName, Runtime:Runtime, Timeout:Timeout, MemorySize:MemorySize, LastModified:LastModified}" \
+            --output table \
+            --region ${{ inputs.region || 'us-east-1' }}
+
+      - name: Get EventBridge rule details
+        if: ${{ !inputs.skip_cfn }}
+        run: |
+          echo "Getting EventBridge rule details..."
+          aws events describe-rule \
+            --name ovechkin-website-update-schedule \
+            --query "{Name:Name, ScheduleExpression:ScheduleExpression, State:State}" \
+            --output table \
+            --region ${{ inputs.region || 'us-east-1' }}
