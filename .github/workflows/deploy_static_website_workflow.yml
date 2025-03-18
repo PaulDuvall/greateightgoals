@@ -43,6 +43,11 @@ on:
         required: false
         default: false
         type: boolean
+      use_existing_bucket:
+        description: 'Use existing S3 bucket instead of creating a new one via CloudFormation'
+        required: false
+        default: true
+        type: boolean
       environment:
         description: 'Environment (dev/prod) - for reference only, not used in stack naming'
         required: false
@@ -85,12 +90,14 @@ jobs:
           STACK_NAME="${{ inputs.stack_name || 'static-website' }}"
           REGION="${{ inputs.region || 'us-east-1' }}"
           CREATE_DNS_RECORD="${{ inputs.skip_dns_record == true && 'false' || 'true' }}"
+          USE_EXISTING_BUCKET="${{ inputs.use_existing_bucket == true && 'true' || 'false' }}"
           
           echo "domain_name=$DOMAIN_NAME" >> $GITHUB_OUTPUT
           echo "stack_name=$STACK_NAME" >> $GITHUB_OUTPUT
           echo "region=$REGION" >> $GITHUB_OUTPUT
           echo "create_dns_record=$CREATE_DNS_RECORD" >> $GITHUB_OUTPUT
           echo "bucket_name=${DOMAIN_NAME}-website" >> $GITHUB_OUTPUT
+          echo "use_existing_bucket=$USE_EXISTING_BUCKET" >> $GITHUB_OUTPUT
           
           # Auto-detect hosted zone ID if not provided
           if [ -z "${{ inputs.hosted_zone_id }}" ]; then
@@ -159,6 +166,7 @@ jobs:
           
           if [ $BUCKET_EXISTS -eq 0 ]; then
               echo "S3 bucket '$BUCKET_NAME' already exists."
+              echo "bucket_exists=true" >> $GITHUB_OUTPUT
               
               # If force-bucket-recreation is set, delete the existing bucket
               if [ "${{ inputs.force_bucket_recreation == true }}" = "true" ]; then
@@ -177,22 +185,100 @@ jobs:
                   # Wait a moment for AWS to fully process the deletion
                   echo "Waiting for bucket deletion to complete..."
                   sleep 5
+                  echo "bucket_exists=false" >> $GITHUB_OUTPUT
               else
                   echo "Using existing bucket."
               fi
+          else
+              echo "S3 bucket '$BUCKET_NAME' does not exist. It will be created."
+              echo "bucket_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Create a modified CloudFormation template if using existing bucket
+      - name: Prepare CloudFormation template
+        id: prepare-template
+        run: |
+          # Create a temporary directory for the modified template
+          mkdir -p aws-static-website/build
+          
+          if [ "${{ steps.prepare-params.outputs.use_existing_bucket }}" = "true" ] && [ "${{ steps.prepare-params.outputs.bucket_exists }}" = "true" ]; then
+            echo "Preparing CloudFormation template to use existing S3 bucket..."
+            
+            # Create a modified template that doesn't include the S3 bucket resource
+            TEMPLATE_PATH="aws-static-website/templates/static-website.yaml"
+            MODIFIED_TEMPLATE_PATH="aws-static-website/build/static-website-modified.yaml"
+            
+            # Use Python to modify the template (more reliable than sed)
+            python3 -c '
+            import yaml
+            import sys
+            
+            # Load the template
+            with open(sys.argv[1], "r") as f:
+                template = yaml.safe_load(f)
+            
+            # Remove the S3 bucket resource and its policy
+            if "WebsiteBucket" in template["Resources"]:
+                del template["Resources"]["WebsiteBucket"]
+            
+            if "WebsiteBucketPolicy" in template["Resources"]:
+                del template["Resources"]["WebsiteBucketPolicy"]
+            
+            # Add a parameter for the existing bucket name
+            template["Parameters"]["ExistingBucketName"] = {
+                "Type": "String",
+                "Description": "Name of an existing S3 bucket to use"
+            }
+            
+            # Update references to the bucket in other resources
+            for resource_name, resource in template["Resources"].items():
+                if resource["Type"] == "AWS::CloudFront::Distribution":
+                    for origin in resource["Properties"]["DistributionConfig"]["Origins"]:
+                        if "S3OriginConfig" in origin:
+                            # Update the DomainName to use the parameter
+                            origin["DomainName"] = {"Fn::Join": ["", [
+                                {"Ref": "ExistingBucketName"},
+                                ".s3.",
+                                {"Ref": "AWS::Region"},
+                                ".amazonaws.com"
+                            ]]}
+            
+            # Update outputs
+            if "WebsiteBucketName" in template["Outputs"]:
+                template["Outputs"]["WebsiteBucketName"]["Value"] = {"Ref": "ExistingBucketName"}
+            
+            # Write the modified template
+            with open(sys.argv[2], "w") as f:
+                yaml.dump(template, f, default_flow_style=False)
+            ' "$TEMPLATE_PATH" "$MODIFIED_TEMPLATE_PATH"
+            
+            echo "template_path=$MODIFIED_TEMPLATE_PATH" >> $GITHUB_OUTPUT
+            echo "Modified CloudFormation template created successfully."
+          else
+            echo "Using original CloudFormation template."
+            echo "template_path=aws-static-website/templates/static-website.yaml" >> $GITHUB_OUTPUT
           fi
 
       # Deploy CloudFormation stack
       - name: Deploy CloudFormation stack
         run: |
           echo "Deploying CloudFormation stack..."
+          
+          # Prepare parameters based on whether we're using an existing bucket
+          PARAMS="DomainName=${{ steps.prepare-params.outputs.domain_name }} \
+                 HostedZoneId=${{ steps.prepare-params.outputs.hosted_zone_id }} \
+                 CreateDnsRecord=${{ steps.prepare-params.outputs.create_dns_record }}"
+          
+          # Add ExistingBucketName parameter if using existing bucket
+          if [ "${{ steps.prepare-params.outputs.use_existing_bucket }}" = "true" ] && [ "${{ steps.prepare-params.outputs.bucket_exists }}" = "true" ]; then
+            PARAMS="$PARAMS ExistingBucketName=${{ steps.prepare-params.outputs.bucket_name }}"
+          fi
+          
+          # Deploy the stack with appropriate parameters
           aws cloudformation deploy \
-            --template-file aws-static-website/templates/static-website.yaml \
+            --template-file ${{ steps.prepare-template.outputs.template_path }} \
             --stack-name ${{ steps.prepare-params.outputs.stack_name }} \
-            --parameter-overrides \
-              DomainName=${{ steps.prepare-params.outputs.domain_name }} \
-              HostedZoneId=${{ steps.prepare-params.outputs.hosted_zone_id }} \
-              CreateDnsRecord=${{ steps.prepare-params.outputs.create_dns_record }} \
+            --parameter-overrides $PARAMS \
             --capabilities CAPABILITY_IAM \
             --region ${{ steps.prepare-params.outputs.region }} \
             --no-fail-on-empty-changeset
@@ -209,6 +295,11 @@ jobs:
             --query "Stacks[0].Outputs[?OutputKey=='WebsiteBucketName'].OutputValue" \
             --output text \
             --region ${{ steps.prepare-params.outputs.region }})
+          
+          # If S3 bucket is not in the outputs, use the parameter value
+          if [ -z "$S3_BUCKET" ]; then
+            S3_BUCKET="${{ steps.prepare-params.outputs.bucket_name }}"
+          fi
           
           # Get the CloudFront distribution ID from CloudFormation outputs
           CLOUDFRONT_DIST_ID=$(aws cloudformation describe-stacks \
