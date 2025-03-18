@@ -93,18 +93,20 @@ jobs:
           echo "AWS Account ID: $account_id"
           echo "account_id=$account_id" >> $GITHUB_OUTPUT
 
-      # Dynamically compute the stack name using the repo name if not provided
-      - name: Set default stack name if not provided
+      # Use the standard stack name to match existing infrastructure
+      - name: Set stack name
         id: set_stack_name
         shell: bash
         run: |
-          repo_name="${GITHUB_REPOSITORY##*/}"
-          if [ -z "${{ github.event.inputs.stack_name }}" ]; then
-            dynamic_stack_name="${repo_name}-static-website"
-          else
+          # Use the provided stack name or default to static-website
+          if [ -n "${{ github.event.inputs.stack_name }}" ]; then
             dynamic_stack_name="${{ github.event.inputs.stack_name }}"
+          else
+            # Use the fixed name 'static-website' to match existing stack
+            dynamic_stack_name="static-website"
           fi
-          echo "Computed stack name: ${dynamic_stack_name}"
+          
+          echo "Using stack name: ${dynamic_stack_name}"
           echo "stack_name=${dynamic_stack_name}" >> $GITHUB_OUTPUT
 
       # Check if stack exists and is in ROLLBACK_COMPLETE state
