@@ -194,6 +194,47 @@ jobs:
               echo "bucket_exists=false" >> $GITHUB_OUTPUT
           fi
 
+      # Check CloudFormation stack status
+      - name: Check CloudFormation stack status
+        id: check-stack
+        run: |
+          echo "Checking CloudFormation stack status..."
+          
+          # Check if the stack exists and get its status
+          STACK_STATUS=$(aws cloudformation describe-stacks \
+            --stack-name ${{ steps.prepare-params.outputs.stack_name }} \
+            --query "Stacks[0].StackStatus" \
+            --output text \
+            --region ${{ steps.prepare-params.outputs.region }} 2>/dev/null || echo "STACK_NOT_FOUND")
+          
+          echo "Current stack status: $STACK_STATUS"
+          echo "stack_status=$STACK_STATUS" >> $GITHUB_OUTPUT
+          
+          # Check if stack is in ROLLBACK_COMPLETE state
+          if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
+            echo "Stack is in ROLLBACK_COMPLETE state. It needs to be deleted before it can be updated."
+            echo "needs_deletion=true" >> $GITHUB_OUTPUT
+          else
+            echo "needs_deletion=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Delete stack if in ROLLBACK_COMPLETE state
+      - name: Delete stack in ROLLBACK_COMPLETE state
+        if: ${{ steps.check-stack.outputs.needs_deletion == 'true' }}
+        run: |
+          echo "Deleting stack in ROLLBACK_COMPLETE state..."
+          
+          aws cloudformation delete-stack \
+            --stack-name ${{ steps.prepare-params.outputs.stack_name }} \
+            --region ${{ steps.prepare-params.outputs.region }}
+          
+          echo "Waiting for stack deletion to complete..."
+          aws cloudformation wait stack-delete-complete \
+            --stack-name ${{ steps.prepare-params.outputs.stack_name }} \
+            --region ${{ steps.prepare-params.outputs.region }}
+          
+          echo "Stack deleted successfully."
+
       # Create a modified CloudFormation template if using existing bucket
       - name: Prepare CloudFormation template
         id: prepare-template
