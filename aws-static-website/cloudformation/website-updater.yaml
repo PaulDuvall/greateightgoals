@@ -158,7 +158,6 @@ Resources:
       MemorySize: 256  # 256 MB
       Environment:
         Variables:
-          STACK_NAME: !Ref StackName
           SNS_TOPIC_ARN: !Ref ErrorNotificationTopic
       Code:
         ZipFile: |

@@ -43,7 +43,7 @@ def lambda_handler(event, context):
         logger.info("Starting website update process")
         
         # Get environment variables
-        stack_name = os.environ.get('STACK_NAME', 'static-website')
+        stack_name = 'static-website'  # Use the fixed stack name to match existing infrastructure
         
         # Get AWS region from Parameter Store or use environment variable as fallback
         region = os.environ.get('AWS_REGION')
