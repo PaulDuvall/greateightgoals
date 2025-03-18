@@ -196,7 +196,6 @@ jobs:
               MetricName="${{ steps.set_stack_name.outputs.stack_name }}ErrorCount" \
               AlarmName="${{ steps.set_stack_name.outputs.stack_name }}-error-alarm" \
             --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
-            --role-arn "arn:aws:iam::${{ steps.validate_permissions.outputs.account_id }}:role/CloudFormation-ServiceRole" \
             --region ${{ inputs.region || 'us-east-1' }} \
             --no-fail-on-empty-changeset
 
