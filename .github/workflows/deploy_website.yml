@@ -12,7 +12,7 @@ on:
       stack_name:
         description: 'CloudFormation stack name for the static website'
         required: false
-        default: 'static-website'
+        default: ''  # Empty default so we can compute dynamically
         type: string
       force_bucket_recreation:
         description: 'Force recreation of S3 bucket'
@@ -75,6 +75,60 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ inputs.region || 'us-east-1' }}
 
+      # Validate IAM permissions
+      - name: Validate IAM permissions
+        id: validate_permissions
+        shell: bash
+        run: |
+          echo "Validating IAM permissions..."
+          # Check if we can list IAM roles (basic IAM read permission check)
+          aws iam get-role --role-name "AWS_CloudFormation_Role" 2>&1 || echo "Warning: Limited IAM read permissions. Deployment may fail if CAPABILITY_NAMED_IAM permissions are insufficient."
+          
+          # Get caller identity to confirm which role we're using
+          caller_identity=$(aws sts get-caller-identity)
+          echo "$caller_identity"
+          
+          # Extract account ID
+          account_id=$(echo "$caller_identity" | grep -o '"Account": "[0-9]\+"' | cut -d '"' -f 4)
+          echo "AWS Account ID: $account_id"
+          echo "account_id=$account_id" >> $GITHUB_OUTPUT
+
+      # Dynamically compute the stack name using the repo name if not provided
+      - name: Set default stack name if not provided
+        id: set_stack_name
+        shell: bash
+        run: |
+          repo_name="${GITHUB_REPOSITORY##*/}"
+          if [ -z "${{ github.event.inputs.stack_name }}" ]; then
+            dynamic_stack_name="${repo_name}-static-website"
+          else
+            dynamic_stack_name="${{ github.event.inputs.stack_name }}"
+          fi
+          echo "Computed stack name: ${dynamic_stack_name}"
+          echo "stack_name=${dynamic_stack_name}" >> $GITHUB_OUTPUT
+
+      # Check if stack exists and is in ROLLBACK_COMPLETE state
+      - name: Check stack status and delete if in ROLLBACK_COMPLETE
+        shell: bash
+        run: |
+          echo "Checking status of stack ${{ steps.set_stack_name.outputs.stack_name }}..."
+          stack_status=$(aws cloudformation describe-stacks --stack-name "${{ steps.set_stack_name.outputs.stack_name }}" --query "Stacks[0].StackStatus" --output text --region ${{ inputs.region || 'us-east-1' }} 2>/dev/null || echo "STACK_NOT_FOUND")
+          
+          echo "Stack status: ${stack_status}"
+          
+          if [ "${stack_status}" = "ROLLBACK_COMPLETE" ]; then
+            echo "Stack is in ROLLBACK_COMPLETE state. Deleting stack before redeployment..."
+            aws cloudformation delete-stack --stack-name "${{ steps.set_stack_name.outputs.stack_name }}" --region ${{ inputs.region || 'us-east-1' }}
+            
+            echo "Waiting for stack deletion to complete..."
+            aws cloudformation wait stack-delete-complete --stack-name "${{ steps.set_stack_name.outputs.stack_name }}" --region ${{ inputs.region || 'us-east-1' }}
+            echo "Stack deletion complete."
+          elif [ "${stack_status}" = "STACK_NOT_FOUND" ]; then
+            echo "Stack does not exist. Will create a new stack."
+          else
+            echo "Stack exists and is not in ROLLBACK_COMPLETE state. Proceeding with update."
+          fi
+
       - name: Run command
         run: |
           # Make the script executable
@@ -88,10 +142,8 @@ jobs:
             CMD="$CMD --domain-name ${{ inputs.domain_name }}"
           fi
           
-          # Add stack name if specified
-          if [[ -n "${{ inputs.stack_name }}" ]]; then
-            CMD="$CMD --stack-name ${{ inputs.stack_name }}"
-          fi
+          # Add stack name using the dynamically computed value
+          CMD="$CMD --stack-name ${{ steps.set_stack_name.outputs.stack_name }}"
           
           # Add force bucket recreation if true
           if [[ "${{ inputs.force_bucket_recreation }}" == "true" ]]; then
@@ -113,6 +165,9 @@ jobs:
             CMD="$CMD ${{ inputs.additional_args }}"
           fi
           
+          # Add capability flags for CloudFormation
+          CMD="$CMD --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+          
           # Execute the command
           echo "Executing: $CMD"
           eval "$CMD"
@@ -120,16 +175,16 @@ jobs:
       - name: Verify deployment
         run: |
           # Check if the CloudFormation stack exists
-          echo "Verifying CloudFormation stack ${{ inputs.stack_name || 'static-website' }}..."
+          echo "Verifying CloudFormation stack ${{ steps.set_stack_name.outputs.stack_name }}..."
           aws cloudformation describe-stacks \
-            --stack-name ${{ inputs.stack_name || 'static-website' }} \
+            --stack-name ${{ steps.set_stack_name.outputs.stack_name }} \
             --region ${{ inputs.region || 'us-east-1' }} \
             --query "Stacks[0].{Name:StackName, Status:StackStatus, Outputs:Outputs}" \
             --output table
           
           # If the stack has outputs, try to get the CloudFront distribution ID
           CF_DIST_ID=$(aws cloudformation describe-stacks \
-            --stack-name ${{ inputs.stack_name || 'static-website' }} \
+            --stack-name ${{ steps.set_stack_name.outputs.stack_name }} \
             --region ${{ inputs.region || 'us-east-1' }} \
             --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionId'].OutputValue" \
             --output text)
