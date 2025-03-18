@@ -109,13 +109,15 @@ Resources:
                   - s3:PutObject
                   - s3:GetObject
                   - s3:ListBucket
-                Resource: '*'  # Will be restricted at runtime to the specific bucket
+                Resource: 
+                  - !Sub 'arn:aws:s3:::${StackName}-website-${AWS::AccountId}'
+                  - !Sub 'arn:aws:s3:::${StackName}-website-${AWS::AccountId}/*'
               
               # Allow CloudFront invalidations
               - Effect: Allow
                 Action:
                   - cloudfront:CreateInvalidation
-                Resource: '*'  # Will be restricted at runtime to the specific distribution
+                Resource: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/*'
               
               # Allow publishing to SNS topic
               - Effect: Allow
