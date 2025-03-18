@@ -71,6 +71,24 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
           aws-region: ${{ inputs.region || 'us-east-1' }}
 
+      # Validate IAM permissions
+      - name: Validate IAM permissions
+        id: validate_permissions
+        shell: bash
+        run: |
+          echo "Validating IAM permissions..."
+          # Check if we can list IAM roles (basic IAM read permission check)
+          aws iam get-role --role-name "AWS_CloudFormation_Role" 2>&1 || echo "Warning: Limited IAM read permissions. Deployment may fail if CAPABILITY_NAMED_IAM permissions are insufficient."
+          
+          # Get caller identity to confirm which role we're using
+          caller_identity=$(aws sts get-caller-identity)
+          echo "$caller_identity"
+          
+          # Extract account ID
+          account_id=$(echo "$caller_identity" | grep -o '"Account": "[0-9]\+"' | cut -d '"' -f 4)
+          echo "AWS Account ID: $account_id"
+          echo "account_id=$account_id" >> $GITHUB_OUTPUT
+
       # Dynamically compute the stack name using the repo name if not provided
       - name: Set default stack name if not provided
         id: set_stack_name
@@ -178,6 +196,7 @@ jobs:
               MetricName="${{ steps.set_stack_name.outputs.stack_name }}ErrorCount" \
               AlarmName="${{ steps.set_stack_name.outputs.stack_name }}-error-alarm" \
             --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --role-arn "arn:aws:iam::${{ steps.validate_permissions.outputs.account_id }}:role/CloudFormation-ServiceRole" \
             --region ${{ inputs.region || 'us-east-1' }} \
             --no-fail-on-empty-changeset
 

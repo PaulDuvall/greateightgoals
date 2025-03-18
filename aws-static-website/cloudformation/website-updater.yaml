@@ -164,6 +164,18 @@ Resources:
           def lambda_handler(event, context):
               return {'statusCode': 200, 'body': 'Placeholder function'}
 
+  # Explicitly create the CloudWatch Logs log group
+  WebsiteUpdaterLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${FunctionName}'
+      RetentionInDays: 14
+      Tags:
+        - Key: Project
+          Value: OvechkinGoalTracker
+        - Key: Component
+          Value: Monitoring
+
   # EventBridge rule for scheduled execution
   WebsiteUpdaterSchedule:
     Type: AWS::Events::Rule
@@ -246,9 +258,9 @@ Resources:
   # CloudWatch Logs Metric Filter for errors
   ErrorMetricFilter:
     Type: AWS::Logs::MetricFilter
-    DependsOn: WebsiteUpdaterFunction
+    DependsOn: WebsiteUpdaterLogGroup
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${WebsiteUpdaterFunction}'
+      LogGroupName: !Sub '/aws/lambda/${FunctionName}'
       FilterPattern: '?ERROR ?CRITICAL'
       MetricTransformations:
         - MetricName: !Ref MetricName
