@@ -148,6 +148,7 @@ jobs:
             --parameter-overrides \
               StackName=${{ steps.set_website_stack.outputs.website_stack }} \
               ScheduleExpression="${{ inputs.schedule || 'cron(0/30 * * * ? *)' }}" \
+              TopicName="${{ steps.set_stack_name.outputs.stack_name }}-errors" \
             --capabilities CAPABILITY_IAM \
             --region ${{ inputs.region || 'us-east-1' }} \
             --no-fail-on-empty-changeset

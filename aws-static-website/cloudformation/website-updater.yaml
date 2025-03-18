@@ -42,6 +42,11 @@ Parameters:
     Description: Number of periods to evaluate for the alarm
     MinValue: 1
 
+  TopicName:
+    Type: String
+    Default: ovechkin-website-updater-errors
+    Description: Name of the SNS Topic for error notifications (must be unique across all stacks)
+
 Resources:
   # Lambda execution role
   WebsiteUpdaterRole:
@@ -169,7 +174,7 @@ Resources:
   ErrorNotificationTopic:
     Type: AWS::SNS::Topic
     Properties:
-      TopicName: ovechkin-website-updater-errors
+      TopicName: !Ref TopicName
       DisplayName: Ovechkin Website Updater Errors
       Tags:
         - Key: Project
