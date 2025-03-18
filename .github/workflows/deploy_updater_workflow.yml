@@ -85,6 +85,28 @@ jobs:
           echo "Computed stack name: ${dynamic_stack_name}"
           echo "stack_name=${dynamic_stack_name}" >> $GITHUB_OUTPUT
 
+      # Check if stack exists and is in ROLLBACK_COMPLETE state
+      - name: Check stack status and delete if in ROLLBACK_COMPLETE
+        shell: bash
+        run: |
+          echo "Checking status of stack ${{ steps.set_stack_name.outputs.stack_name }}..."
+          stack_status=$(aws cloudformation describe-stacks --stack-name "${{ steps.set_stack_name.outputs.stack_name }}" --query "Stacks[0].StackStatus" --output text --region ${{ inputs.region || 'us-east-1' }} 2>/dev/null || echo "STACK_NOT_FOUND")
+          
+          echo "Stack status: ${stack_status}"
+          
+          if [ "${stack_status}" = "ROLLBACK_COMPLETE" ]; then
+            echo "Stack is in ROLLBACK_COMPLETE state. Deleting stack before redeployment..."
+            aws cloudformation delete-stack --stack-name "${{ steps.set_stack_name.outputs.stack_name }}" --region ${{ inputs.region || 'us-east-1' }}
+            
+            echo "Waiting for stack deletion to complete..."
+            aws cloudformation wait stack-delete-complete --stack-name "${{ steps.set_stack_name.outputs.stack_name }}" --region ${{ inputs.region || 'us-east-1' }}
+            echo "Stack deletion complete."
+          elif [ "${stack_status}" = "STACK_NOT_FOUND" ]; then
+            echo "Stack does not exist. Will create a new stack."
+          else
+            echo "Stack exists and is not in ROLLBACK_COMPLETE state. Proceeding with update."
+          fi
+
       # Dynamically compute the website stack name using the repo name if not provided
       - name: Set default website stack if not provided
         id: set_website_stack
