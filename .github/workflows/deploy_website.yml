@@ -1,0 +1,82 @@
+name: Deploy Static Website
+
+on:
+  # Manual trigger using GitHub Actions UI
+  workflow_dispatch:
+    inputs:
+      domain_name:
+        description: 'Domain name for the website'
+        required: false
+        default: 'greateightgoals.com'
+        type: string
+      force_bucket_recreation:
+        description: 'Force recreation of S3 bucket'
+        required: false
+        default: false
+        type: boolean
+      region:
+        description: 'AWS region'
+        required: false
+        default: 'us-east-1'
+        type: string
+      environment:
+        description: 'Environment (dev/prod) - for reference only'
+        required: false
+        default: 'prod'
+        type: choice
+        options:
+          - dev
+          - prod
+      command:
+        description: 'Command to run (deploy, update-green, etc.)'
+        required: false
+        default: 'deploy'
+        type: string
+      additional_args:
+        description: 'Additional arguments to pass to the command'
+        required: false
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # Required for OIDC authentication
+      contents: read    # Required to checkout the repository
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ inputs.region || 'us-east-1' }}
+
+      - name: Run command
+        run: |
+          # Make the script executable
+          chmod +x ./aws-static-website/run.sh
+          
+          # Build the command with dynamic inputs
+          CMD="./aws-static-website/run.sh ${{ inputs.command || 'deploy' }}"
+          
+          # Add domain name if specified
+          if [[ -n "${{ inputs.domain_name }}" ]]; then
+            CMD="$CMD --domain-name ${{ inputs.domain_name }}"
+          fi
+          
+          # Add force bucket recreation if true
+          if [[ "${{ inputs.force_bucket_recreation }}" == "true" ]]; then
+            CMD="$CMD --force-bucket-recreation"
+          fi
+          
+          # Add any additional arguments
+          if [[ -n "${{ inputs.additional_args }}" ]]; then
+            CMD="$CMD ${{ inputs.additional_args }}"
+          fi
+          
+          # Execute the command
+          echo "Executing: $CMD"
+          eval "$CMD"

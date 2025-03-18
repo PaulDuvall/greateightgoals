@@ -207,8 +207,7 @@ aws-static-website/
 To deploy the static website infrastructure, run:
 
 ```bash
-cd aws-static-website
-./run.sh deploy --domain example.com --email your-email@example.com
+./aws-static-website/run.sh deploy --domain-name example.com--force-bucket-recreation
 ```
 
 This will:
