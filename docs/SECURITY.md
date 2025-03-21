@@ -22,6 +22,12 @@ This document outlines the security practices, potential vulnerabilities, and co
   Resource: 
     - !Sub 'arn:aws:s3:::${StackName}-website-${AWS::AccountId}'
     - !Sub 'arn:aws:s3:::${StackName}-website-${AWS::AccountId}/*'
+
+# Example of current CloudFront permissions (account-scoped)
+- Effect: Allow
+  Action:
+    - cloudfront:CreateInvalidation
+  Resource: !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/*'
 ```
 
 #### 2. Email Configuration Management
@@ -38,9 +44,23 @@ This document outlines the security practices, potential vulnerabilities, and co
 
 #### 4. GitHub Actions Workflow Security
 
-- **Finding**: The GitHub Actions workflow (`deploy_updater_workflow.yml`) now uses OpenID Connect (OIDC) for AWS authentication, which is a significant security improvement over storing long-lived AWS credentials.
+- **Finding**: The GitHub Actions workflow (`deploy_updater_workflow.yml`) uses OpenID Connect (OIDC) for AWS authentication, which is a significant security improvement over storing long-lived AWS credentials.
 - **Risk Level**: Low (previously High)
 - **Recommendation**: Continue using OIDC for authentication and ensure the IAM role used has the minimum necessary permissions.
+
+```yaml
+# OIDC authentication in GitHub Actions workflow
+permissions:
+  id-token: write   # Required for OIDC authentication
+  contents: read    # Required to checkout the repository
+
+# AWS credentials configuration using OIDC
+- name: Configure AWS credentials
+  uses: aws-actions/configure-aws-credentials@v2
+  with:
+    role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+    aws-region: ${{ inputs.region || 'us-east-1' }}
+```
 
 #### 5. Virtual Environment Management
 
