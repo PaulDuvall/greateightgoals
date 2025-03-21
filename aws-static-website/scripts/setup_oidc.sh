@@ -27,7 +27,7 @@ usage() {
   echo "  --stack-name STACK_NAME    CloudFormation stack name (default: thegr8chase-github-oidc)"
   echo "  --github-org ORG_NAME      GitHub organization name (required)"
   echo "  --repo-name REPO_NAME      GitHub repository name (required)"
-  echo "  --branch-name BRANCH_NAME  GitHub branch name (default: main)"
+  echo "  --branch-name BRANCH_NAME  GitHub branch name (default: main, used for documentation only)"
   echo "  --github-token TOKEN       GitHub Personal Access Token with repo and workflow scopes (required)"
   echo "  --help                     Display this help message"
   exit 1
@@ -97,12 +97,12 @@ if [[ -z "$GITHUB_ORG" || -z "$REPO_NAME" ]]; then
 fi
 
 # Confirm detected values
-echo "\nDeployment Configuration:"
+echo -e "\nDeployment Configuration:"
 echo "AWS Region: $REGION"
 echo "Stack Name: $STACK_NAME"
 echo "GitHub Organization: $GITHUB_ORG"
 echo "Repository Name: $REPO_NAME"
-echo "Branch Name: $BRANCH_NAME"
+echo "Branch Name: $BRANCH_NAME (Note: OIDC is configured to allow all branches, PRs, and tags)"
 echo ""
 
 # Deploy or update CloudFormation stack
@@ -155,11 +155,11 @@ ROLE_ARN=$(aws cloudformation describe-stacks \
   --query "Stacks[0].Outputs[?OutputKey=='RoleARN'].OutputValue" \
   --output text)
 
-echo "\nDeployment complete!"
+echo -e "\nDeployment complete!"
 echo "IAM Role ARN: $ROLE_ARN"
 
 # Set GitHub repository variable
-echo "\nSetting GitHub repository variable AWS_ROLE_TO_ASSUME..."
+echo -e "\nSetting GitHub repository variable AWS_ROLE_TO_ASSUME..."
 
 # First try to update the variable (if it exists)
 UPDATE_RESPONSE=$(curl -s -w "%{http_code}" -o /dev/null -X PATCH \
@@ -192,19 +192,24 @@ else
   echo "Please check your GitHub token has the correct permissions (repo and workflow scopes)."
 fi
 
-echo "\n✅ Setup complete! GitHub Actions workflows can now use OIDC authentication with AWS."
+echo -e "\n✅ Setup complete! GitHub Actions workflows can now use OIDC authentication with AWS."
 echo "Use the following configuration in your GitHub Actions workflow:"
 echo ""
 echo "jobs:"
 echo "  deploy:"
 echo "    permissions:"
 echo "      id-token: write   # Required for OIDC"
-echo "      contents: read"
+echo "      contents: read    # Required to checkout the repository"
+echo "    "
 echo "    steps:"
 echo "      - name: Configure AWS credentials"
 echo "        uses: aws-actions/configure-aws-credentials@v2"
 echo "        with:"
-echo "          role-to-assume: \${{ vars.AWS_ROLE_TO_ASSUME }}"
+echo "          role-to-assume: $ROLE_ARN"
 echo "          aws-region: $REGION"
+echo "          audience: sts.amazonaws.com"
 echo ""
-echo "The AWS_ROLE_TO_ASSUME variable has been automatically set in your GitHub repository."
+echo "Note: The OIDC configuration now allows authentication from any branch, PR, or tag."
+echo "This means your GitHub Actions workflows can run from any context without authentication issues."
+echo "If you need to restrict which branches can assume the role, you'll need to modify the"
+echo "CloudFormation template at $CLOUDFORMATION_DIR/github_oidc.yaml and update the stack."
