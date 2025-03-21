@@ -161,8 +161,16 @@ setup_env() {
         exit 1
     fi
     
-    # Create virtual environment if it doesn't exist
-    if [ ! -d "$VENV_DIR" ]; then
+    # Check if virtual environment exists and has a valid interpreter
+    if [ -d "$VENV_DIR" ]; then
+        # Test if the virtual environment's Python interpreter is valid
+        if ! "$VENV_DIR/bin/python3" --version &> /dev/null; then
+            echo -e "${YELLOW}Existing virtual environment has an invalid Python interpreter. Recreating...${NC}"
+            rm -rf "$VENV_DIR"
+            python3 -m venv "$VENV_DIR"
+        fi
+    else
+        # Create virtual environment if it doesn't exist
         echo -e "Creating virtual environment..."
         python3 -m venv "$VENV_DIR"
     fi
@@ -172,8 +180,8 @@ setup_env() {
     
     # Install dependencies
     echo -e "Installing dependencies..."
-    pip install --upgrade pip
-    pip install -r requirements.txt
+    "$VENV_DIR/bin/pip" install --upgrade pip
+    "$VENV_DIR/bin/pip" install -r requirements.txt
     
     echo -e "${GREEN}Setup complete!${NC}"
 }
@@ -188,8 +196,16 @@ setup_lambda_env() {
         exit 1
     fi
     
-    # Create virtual environment if it doesn't exist
-    if [ ! -d "$VENV_DIR" ]; then
+    # Check if virtual environment exists and has a valid interpreter
+    if [ -d "$VENV_DIR" ]; then
+        # Test if the virtual environment's Python interpreter is valid
+        if ! "$VENV_DIR/bin/python3" --version &> /dev/null; then
+            echo -e "${YELLOW}Existing virtual environment has an invalid Python interpreter. Recreating...${NC}"
+            rm -rf "$VENV_DIR"
+            python3 -m venv "$VENV_DIR"
+        fi
+    else
+        # Create virtual environment if it doesn't exist
         echo -e "Creating virtual environment..."
         python3 -m venv "$VENV_DIR"
     fi
@@ -199,9 +215,15 @@ setup_lambda_env() {
     
     # Install dependencies from both requirements files
     echo -e "Installing dependencies..."
-    pip install --upgrade pip
-    pip install -r requirements.txt
-    pip install -r lambda/requirements-lambda.txt
+    "$VENV_DIR/bin/pip" install --upgrade pip
+    "$VENV_DIR/bin/pip" install -r requirements.txt
+    
+    # Check if Lambda requirements file exists
+    if [ -f "lambda/requirements-lambda.txt" ]; then
+        "$VENV_DIR/bin/pip" install -r lambda/requirements-lambda.txt
+    else
+        echo -e "${YELLOW}Lambda requirements file not found. Skipping Lambda-specific dependencies.${NC}"
+    fi
     
     echo -e "${GREEN}Lambda setup complete!${NC}"
 }
@@ -231,9 +253,18 @@ activate_lambda_venv() {
 # Function to display Ovechkin stats
 show_stats() {
     activate_venv
-    echo -e "Displaying Ovechkin stats..."
-    python3 main.py stats
-    echo -e "\nOvechkin Goal Tracker - Stats displayed successfully!"
+    
+    echo -e "${BLUE}Displaying Ovechkin stats...${NC}"
+    
+    # Set up debug logging if DEBUG environment variable is set
+    if [ -n "${DEBUG:-}" ]; then
+        python3 -c "import logging; logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')" &>/dev/null
+        python3 main.py stats
+    else
+        python3 main.py stats
+    fi
+    
+    echo -e "\n${GREEN}Ovechkin Goal Tracker - Stats displayed successfully!${NC}"
 }
 
 # Function to configure email settings
@@ -308,14 +339,22 @@ test_lambda() {
 
 # Function to install test dependencies
 install_test_deps() {
-    activate_venv
-    
     echo -e "${BLUE}Installing test dependencies...${NC}"
     
-    # Install pytest-cov for test coverage
-    pip install pytest-cov
+    # Check if virtual environment exists
+    if [ ! -d "$VENV_DIR" ]; then
+        echo -e "${YELLOW}Virtual environment not found. Setting up first...${NC}"
+        setup_env
+    else
+        # Activate virtual environment
+        source "$VENV_DIR/bin/activate"
+    fi
     
-    echo -e "${GREEN}Test dependencies installed successfully!${NC}"
+    # Install pytest-cov
+    echo -e "Installing pytest-cov..."
+    "$VENV_DIR/bin/pip" install pytest-cov
+    
+    echo -e "${GREEN}Test dependencies installed!${NC}"
 }
 
 # Function to run all tests

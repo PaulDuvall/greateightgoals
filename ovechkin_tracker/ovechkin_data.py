@@ -20,6 +20,21 @@ from ovechkin_tracker.nhl_api import get_ovechkin_stats, get_capitals_games_play
 # Set up logging
 logger = logging.getLogger(__name__)
 
+# Function to enable debug logging
+def enable_debug_logging():
+    """Enable debug logging for the OvechkinData module"""
+    # Configure root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    
+    # Create console handler if none exists
+    if not root_logger.handlers:
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        console_handler.setFormatter(formatter)
+        root_logger.addHandler(console_handler)
+
 
 class OvechkinData:
     """A class to encapsulate Ovechkin's statistics and projections.
@@ -42,6 +57,8 @@ class OvechkinData:
         Upon initialization, the class fetches the latest data from the NHL API
         and calculates all relevant statistics.
         """
+        enable_debug_logging()  # Call the function to enable debug logging
+        
         # Initialize data containers
         self._raw_data = {}
         self._flat_stats = {}
@@ -101,7 +118,7 @@ class OvechkinData:
             self._remaining_games = self._total_season_games - self._team_games_played
             self._games_ovie_missed = self._team_games_played - self._ovechkin_games_played
             
-            # Avoid division by zero
+            # Calculate goals per game - ensure we're using games Ovechkin actually played
             self._goals_per_game = self._goals_this_season / max(self._ovechkin_games_played, 1)
             self._projected_remaining_goals = round(self._goals_per_game * self._remaining_games)
             self._goals_to_beat_gretzky = self.GRETZKY_RECORD - self._total_goals + 1  # +1 to break record, not just tie
@@ -109,51 +126,49 @@ class OvechkinData:
             # Calculate projected record-breaking date
             projected_date_obj = None
             if self._goals_per_game > 0:
+                # Calculate games needed based on goals needed and goals per game rate
                 games_needed = self._goals_to_beat_gretzky / self._goals_per_game
                 games_remaining_needed = round(games_needed)
                 
-                # Convert end date string to datetime
-                end_date = datetime.strptime(self.SEASON_END_DATE, '%Y-%m-%d')
-                now = datetime.now(pytz.timezone('America/New_York'))
-                days_remaining = (end_date - now.replace(tzinfo=None)).days
+                # Log the calculation for debugging
+                logger.info(f"Goals to beat Gretzky: {self._goals_to_beat_gretzky}")
+                logger.info(f"Goals per game this season: {self._goals_per_game:.3f}")
+                logger.info(f"Games needed: {games_needed:.2f} (rounded to {games_remaining_needed})")
+                logger.info(f"Ovechkin games played this season: {self._ovechkin_games_played}")
+                logger.info(f"Team games played this season: {self._team_games_played}")
+                logger.info(f"Games Ovechkin missed: {self._games_ovie_missed}")
+                logger.info(f"Remaining games in season: {self._remaining_games}")
                 
-                # Avoid division by zero
-                days_per_game = days_remaining / max(self._remaining_games, 1)
-                projected_days = days_per_game * games_remaining_needed
-                projected_date_obj = now + timedelta(days=projected_days)
-                self._projected_date_str = projected_date_obj.strftime('%m/%d/%Y')
+                # Get the remaining games schedule
+                remaining_games = get_remaining_games()
+                
+                # Check if we have enough remaining games
+                if len(remaining_games) >= games_remaining_needed and games_remaining_needed > 0:
+                    # Get the specific game where the record would be broken (0-indexed)
+                    record_game_index = games_remaining_needed - 1
+                    record_game = remaining_games[record_game_index]
+                    
+                    # Extract the date from the game info
+                    # Format is "Saturday, 2025-04-12 (12.04.2025)"
+                    try:
+                        date_str = record_game['date'].split(', ')[1].split(' (')[0]
+                        projected_date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+                        self._projected_date_str = projected_date_obj.strftime('%m/%d/%Y')
+                        logger.info(f"Record-breaking game identified: {record_game['date']}")
+                        logger.info(f"Opponent: {record_game['opponent']} ({record_game['location']})")
+                    except (IndexError, ValueError) as e:
+                        logger.error(f"Error parsing record game date: {e}")
+                        # Fallback to the old calculation method
+                        self._use_fallback_date_calculation(games_remaining_needed)
+                else:
+                    # Fallback to the old calculation method if we don't have enough games
+                    logger.warning(f"Not enough remaining games in schedule ({len(remaining_games)}) for needed games ({games_remaining_needed})")
+                    self._use_fallback_date_calculation(games_remaining_needed)
+                
+                # Set the record game info
+                self._find_and_set_record_game(projected_date_obj, remaining_games)
             else:
                 self._projected_date_str = "N/A"
-            
-            # Pre-fetch remaining games to avoid redundant API calls
-            remaining_games_list = get_remaining_games()
-            
-            # Find the game on or closest to the projected record-breaking date
-            self._record_game = self._find_game_on_projected_date(projected_date_obj, remaining_games_list) if projected_date_obj else None
-            
-            # Create record game info string
-            self._record_game_info = "No game information available"
-            self._record_game_dict = {}
-            if self._record_game:
-                # Get day of week for the game date
-                game_date = datetime.strptime(self._record_game['date'].split(', ')[1].split(' (')[0], '%Y-%m-%d')
-                day_of_week = game_date.strftime('%A')
-                
-                # Format dates in both US and European formats
-                us_date = game_date.strftime('%Y-%m-%d')
-                eu_date = game_date.strftime('%d.%m.%Y')
-                
-                self._record_game_info = f"{day_of_week}, {us_date} ({eu_date}), {self._record_game['time']} vs {self._record_game['opponent']} ({self._record_game['location']})"
-                
-                # Create record game dictionary
-                self._record_game_dict = {
-                    "full_string": self._record_game_info,
-                    "date": f"{day_of_week}, {us_date} ({eu_date})",
-                    "time": self._record_game['time'],
-                    "opponent": self._record_game['opponent'],
-                    "location": self._record_game['location'],
-                    "raw_date": us_date
-                }
             
             now = datetime.now(pytz.timezone('America/New_York'))
             self._last_updated = now.strftime("%Y-%m-%d %I:%M:%S %p ET")
@@ -164,32 +179,53 @@ class OvechkinData:
         except Exception as e:
             logger.error(f"Error calculating stats: {e}", exc_info=True)
     
-    def _find_game_on_projected_date(self, projected_date, games_cache=None):
-        """Find the Capitals game on or closest to the projected record-breaking date.
+    def _use_fallback_date_calculation(self, games_remaining_needed):
+        """Fallback method to calculate projected date using days per game"""
+        # Convert end date string to datetime
+        end_date = datetime.strptime(self.SEASON_END_DATE, '%Y-%m-%d')
+        now = datetime.now(pytz.timezone('America/New_York'))
+        days_remaining = (end_date - now.replace(tzinfo=None)).days
+        
+        # Avoid division by zero
+        days_per_game = days_remaining / max(self._remaining_games, 1)
+        projected_days = days_per_game * games_remaining_needed
+        projected_date_obj = now + timedelta(days=projected_days)
+        self._projected_date_str = projected_date_obj.strftime('%m/%d/%Y')
+        
+        logger.info(f"Using fallback date calculation:")
+        logger.info(f"Days remaining in season: {days_remaining}")
+        logger.info(f"Days per game: {days_per_game:.2f}")
+        logger.info(f"Projected days until record: {projected_days:.2f}")
+        logger.info(f"Projected record date: {self._projected_date_str}")
+        
+        return projected_date_obj
+    
+    def _find_and_set_record_game(self, projected_date_obj, remaining_games):
+        """Find the game on or closest to the projected record-breaking date.
         
         Args:
-            projected_date: Date object or string in format '%m/%d/%Y'
-            games_cache: Optional pre-fetched games list to avoid redundant API calls
+            projected_date_obj: Date object or string in format '%m/%d/%Y'
+            remaining_games: List of remaining games
             
         Returns:
             dict: Game information or None if no game is found
         """
-        # Get all remaining games (use cache if provided)
-        remaining_games = games_cache if games_cache is not None else get_remaining_games()
-        
-        if not remaining_games:
-            logger.warning("No remaining games found when looking for projected date game")
-            return None
-        
         # Convert projected_date to date object for comparison
-        if isinstance(projected_date, str):
+        if projected_date_obj is None:
+            logger.warning("No projected date provided when looking for record game")
+            return
+            
+        # Ensure projected_date_obj is a date object, not a datetime
+        if isinstance(projected_date_obj, datetime):
+            projected_date = projected_date_obj.date()
+        elif isinstance(projected_date_obj, str):
             try:
-                projected_date = datetime.strptime(projected_date, '%m/%d/%Y').date()
+                projected_date = datetime.strptime(projected_date_obj, '%m/%d/%Y').date()
             except ValueError as e:
                 logger.error(f"Invalid date format: {e}")
-                return None
-        elif isinstance(projected_date, datetime):
-            projected_date = projected_date.date()
+                return
+        else:
+            projected_date = projected_date_obj  # Assume it's already a date object
         
         # Find the game on or AFTER the projected date (never before)
         closest_game = None
@@ -225,7 +261,29 @@ class OvechkinData:
                 logger.error(f"Error sorting games: {e}")
                 closest_game = remaining_games[-1]  # Fallback to the last game in the list
         
-        return closest_game
+        # Create record game info string
+        self._record_game_info = "No game information available"
+        self._record_game_dict = {}
+        if closest_game:
+            # Get day of week for the game date
+            game_date = datetime.strptime(closest_game['date'].split(', ')[1].split(' (')[0], '%Y-%m-%d')
+            day_of_week = game_date.strftime('%A')
+            
+            # Format dates in both US and European formats
+            us_date = game_date.strftime('%Y-%m-%d')
+            eu_date = game_date.strftime('%d.%m.%Y')
+            
+            self._record_game_info = f"{day_of_week}, {us_date} ({eu_date}), {closest_game['time']} vs {closest_game['opponent']} ({closest_game['location']})"
+            
+            # Create record game dictionary
+            self._record_game_dict = {
+                "full_string": self._record_game_info,
+                "date": f"{day_of_week}, {us_date} ({eu_date})",
+                "time": closest_game['time'],
+                "opponent": closest_game['opponent'],
+                "location": closest_game['location'],
+                "raw_date": us_date
+            }
     
     def _build_stats_dictionaries(self) -> None:
         """Build the flat and nested stats dictionaries.
