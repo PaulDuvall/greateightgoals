@@ -225,6 +225,20 @@ jobs:
           echo "Lambda response:"
           cat /tmp/lambda-response.json
 
+      - name: Test Lambda function with standard mode
+        if: ${{ github.event.inputs.celebrate != 'true' }}
+        run: |
+          echo "Testing Lambda function with standard mode..."
+          aws lambda invoke \
+            --function-name "${{ steps.set_stack_name.outputs.stack_name }}" \
+            --cli-binary-format raw-in-base64-out \
+            --payload '{"celebrate": false}' \
+            --region ${{ inputs.region || 'us-east-1' }} \
+            /tmp/lambda-response.json
+          
+          echo "Lambda response:"
+          cat /tmp/lambda-response.json
+
       - name: Get Lambda function details
         run: |
           echo "Getting Lambda function details..."
