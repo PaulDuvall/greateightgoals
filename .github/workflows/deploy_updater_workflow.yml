@@ -217,6 +217,7 @@ jobs:
           echo "Testing Lambda function with celebration mode..."
           aws lambda invoke \
             --function-name "${{ steps.set_stack_name.outputs.stack_name }}" \
+            --cli-binary-format raw-in-base64-out \
             --payload '{"celebrate": true}' \
             --region ${{ inputs.region || 'us-east-1' }} \
             /tmp/lambda-response.json

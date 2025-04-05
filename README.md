@@ -18,6 +18,7 @@ This application fetches Alex Ovechkin's current stats from the NHL API, calcula
 - Identifies the specific game where the record might be broken, including date, time, opponent, and location
 - Displays a formatted projection string: "Projected Record-Breaking Game: Saturday, April 12, 2025, 12:30 PM ET vs Columbus Blue Jackets (Away)"
 - Hosts a static website that updates automatically on a configurable schedule
+- Celebration mode for special occasions with festive styling and animations
 - Sends email notifications with stats and projections using Amazon SES
 - Configurable through AWS Systems Manager Parameter Store
 - Supports AWS Lambda deployment with API Gateway integration
@@ -239,14 +240,23 @@ You can customize the update frequency using various schedule expressions:
 - `cron(0 * * * ? *)` - Run at the top of every hour (00:00)
 - `cron(0,30 * * * ? *)` - Run at the top and half of every hour (00:00, 00:30)
 
-### Updating Website Content
+### Update Website
 
-To update the website content manually, run:
+To update the static website with the latest stats:
 
 ```bash
-cd aws-static-website
-./run.sh update-content
+./run.sh update-website
 ```
+
+To update the website with celebration mode enabled:
+
+```bash
+./run.sh update-website --celebrate
+```
+
+### Deploy Website Infrastructure
+
+The project includes a complete infrastructure solution for hosting a static website on AWS that follows the twelve-factor app methodology and uses AWS CloudFormation for infrastructure as code.
 
 ## CI/CD with GitHub Actions
 
@@ -258,6 +268,7 @@ The project includes a GitHub Actions workflow for automated deployment of the w
 - **Automatic Updates**: Automatically deploys when code changes are pushed
 - **Configurable Schedule**: Customize the update frequency using schedule expressions
 - **Lambda Code Updates**: Option to update only the Lambda function code without redeploying the CloudFormation stack
+- **Celebration Mode**: Option to enable celebration mode for special occasions
 
 ### AWS OIDC Authentication for GitHub Actions
 
@@ -324,6 +335,42 @@ This project implements OpenID Connect (OIDC) authentication between GitHub Acti
 ## Optimizing Update Frequency
 
 The website updater can be configured to run on a schedule that aligns with the Washington Capitals' game schedule, rather than running at fixed intervals. This optimization is useful because the NHL API updates anywhere from 30 minutes to 3 hours after a game ends.
+
+## Celebration Mode
+
+The application includes a special celebration mode that can be activated for milestone occasions. When enabled, the website displays a festive version with bright colors, animations, and confetti effects.
+
+### Activating Celebration Mode
+
+#### Local Development
+
+To update the website with celebration mode enabled locally:
+
+```bash
+./run.sh update-website --celebrate
+```
+
+#### Via GitHub Actions
+
+To deploy with celebration mode enabled via GitHub Actions:
+
+1. Go to the Actions tab in your GitHub repository
+2. Select the "Deploy Website Updater" workflow
+3. Click "Run workflow"
+4. Check the "Enable celebration mode for the website" option
+5. Click "Run workflow"
+
+#### Via AWS Lambda
+
+To trigger the Lambda function with celebration mode enabled:
+
+```bash
+aws lambda invoke \
+  --function-name "ovechkin-tracker-updater" \
+  --payload '{"celebrate": true}' \
+  --region "us-east-1" \
+  response.json
+```
 
 ## Contributing
 
