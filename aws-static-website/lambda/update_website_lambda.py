@@ -45,6 +45,11 @@ def lambda_handler(event, context):
         # Get environment variables
         stack_name = 'static-website'  # Use the fixed stack name to match existing infrastructure
         
+        # Check if celebration mode is enabled from event
+        celebrate = event.get('celebrate', False)
+        if celebrate:
+            logger.info("Celebration mode enabled!")
+        
         # Get AWS region from Parameter Store or use environment variable as fallback
         region = os.environ.get('AWS_REGION')
         if not region:
@@ -110,20 +115,14 @@ def lambda_handler(event, context):
             update_website_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(update_website_module)
             
-            # Call the update_website function
-            logger.info("Running update_website function")
-            result = update_website_module.update_website()
-            
-            if not result:
-                raise Exception("update_website function returned False")
-                
-            logger.info("Website content updated successfully")
+            # Call the update_website function with the celebration mode parameter
+            update_website_module.update_website(celebrate=celebrate)
+            logger.info("Successfully executed update_website.py")
         except Exception as e:
-            logger.error(f"Error running update_website module: {str(e)}")
+            logger.error(f"Error importing or executing update_website.py: {str(e)}")
             raise
         
-        # Get the updated static files
-        # In Lambda, the files will be in /tmp/static instead of task_dir/static
+        # Find the static directory where the generated content is located
         static_dir = '/tmp/static'
         if not os.path.exists(static_dir):
             logger.warning(f"Temporary static directory not found at {static_dir}")
@@ -184,11 +183,16 @@ def lambda_handler(event, context):
         except Exception as e:
             logger.warning(f"Could not invalidate CloudFront cache: {str(e)}")
         
+        success_message = "Website updated successfully"
+        if celebrate:
+            success_message += " in CELEBRATION MODE!"
+            
         return {
             'statusCode': 200,
             'body': json.dumps({
-                'message': 'Website updated successfully',
-                'bucket': bucket_name
+                'message': success_message,
+                'bucket': bucket_name,
+                'celebrate': celebrate
             })
         }
         

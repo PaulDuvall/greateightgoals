@@ -13,6 +13,7 @@ import subprocess
 import json
 from datetime import datetime
 import sys
+import argparse  # Add argparse for command line arguments
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -587,7 +588,11 @@ def generate_html_content(stats):
             left: 0;
             width: 100%;
             height: 4px;
-            background: linear-gradient(90deg, var(--caps-white) 0%, var(--caps-white) 30%, var(--caps-red) 30%, var(--caps-red) 100%);
+            background: linear-gradient(90deg, 
+                            var(--caps-white) 0%, 
+                            var(--caps-white) 30%, 
+                            var(--caps-red) 30%, 
+                            var(--caps-red) 100%);
         }}
         
         .update-time {{
@@ -725,9 +730,334 @@ def generate_html_content(stats):
     return html
 
 
-def update_website():
+def generate_celebration_html_content(stats):
+    """
+    Generate HTML content for celebration mode with different background colors and styling
+    
+    Args:
+        stats: Dictionary containing Ovechkin's stats
+        
+    Returns:
+        str: HTML content for the celebration website
+    """
+    # Extract key information
+    total_goals = stats.get('flat_stats', {}).get('Total Number of Goals', 'N/A')
+    goals_needed = stats.get('flat_stats', {}).get('Goals to Beat Gretzy', 'N/A')
+    
+    # Get the projected game dictionary from nested stats which has structured data
+    projected_game_dict = stats.get('nested_stats', {}).get('record', {}).get('projected_game', {})
+    
+    # Format the projection string
+    formatted_projection = "Projected Record-Breaking Game: "
+    
+    # Extract and format the date properly (reusing the same logic as in generate_html_content)
+    if projected_game_dict:
+        # Use the same date formatting logic as in generate_html_content
+        # This is intentionally simplified here - the full implementation would copy the date formatting logic
+        date_str = projected_game_dict.get('date', '')
+        if date_str:
+            formatted_projection += date_str
+    
+    # Get the timestamp
+    eastern = pytz.timezone('US/Eastern')
+    now = datetime.now(eastern)
+    timestamp = now.strftime('%Y-%m-%d %I:%M:%S %p ET')
+    
+    # Create the HTML content with celebration colors
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>The Great Eight Goals - CELEBRATION MODE!</title>
+        <link rel="icon" href="assets/gr8.svg" type="image/svg+xml">
+        <style>
+            :root {{
+                /* Celebration colors - bright and festive */
+                --celebration-bg: #FFD700; /* Gold */
+                --celebration-text: #DC143C; /* Crimson */
+                --celebration-accent: #00BFFF; /* Deep Sky Blue */
+                --celebration-highlight: #FF1493; /* Deep Pink */
+                --celebration-secondary: #32CD32; /* Lime Green */
+                --celebration-border: #9932CC; /* Dark Orchid */
+                --caps-red: #C8102E;
+                --caps-blue: #041E42;
+                --caps-white: #FFFFFF;
+            }}
+            
+            body {{
+                font-family: 'Arial', sans-serif;
+                margin: 0;
+                padding: 0;
+                background-color: var(--celebration-bg);
+                color: var(--celebration-text);
+                line-height: 1.6;
+            }}
+            
+            .container {{
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+            }}
+            
+            header {{
+                background-color: var(--celebration-accent);
+                color: var(--celebration-bg);
+                padding: 20px 0;
+                text-align: center;
+                position: relative;
+                border-bottom: 5px solid var(--celebration-border);
+                border-radius: 0 0 15px 15px;
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+                animation: pulse 2s infinite;
+            }}
+            
+            @keyframes pulse {{
+                0% {{ transform: scale(1); }}
+                50% {{ transform: scale(1.02); }}
+                100% {{ transform: scale(1); }}
+            }}
+            
+            h1 {{
+                font-size: 2.5rem;
+                margin: 0;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+                text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            }}
+            
+            .subtitle {{
+                font-size: 1.2rem;
+                margin-top: 5px;
+                font-style: italic;
+            }}
+            
+            .stats-container {{
+                background-color: var(--celebration-secondary);
+                border-radius: 15px;
+                padding: 30px;
+                margin: 30px 0;
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+                border: 3px dashed var(--celebration-border);
+                animation: border-dance 4s infinite linear;
+            }}
+            
+            @keyframes border-dance {{
+                0% {{ border-style: dashed; }}
+                33% {{ border-style: dotted; }}
+                66% {{ border-style: double; }}
+                100% {{ border-style: dashed; }}
+            }}
+            
+            .stat-box {{
+                text-align: center;
+                margin-bottom: 20px;
+                padding: 15px;
+                background-color: var(--celebration-bg);
+                border-radius: 10px;
+                box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+                transition: transform 0.3s ease;
+            }}
+            
+            .stat-box:hover {{
+                transform: translateY(-5px);
+                box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+            }}
+            
+            .stat-label {{
+                font-size: 1.2rem;
+                font-weight: bold;
+                margin-bottom: 10px;
+                color: var(--celebration-highlight);
+            }}
+            
+            .stat-value {{
+                font-size: 3rem;
+                font-weight: bold;
+                color: var(--celebration-text);
+                text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+            }}
+            
+            .projection {{
+                font-size: 1.2rem;
+                margin-top: 30px;
+                padding: 15px;
+                background-color: var(--celebration-highlight);
+                color: white;
+                border-radius: 10px;
+                text-align: center;
+                font-weight: bold;
+                box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+            }}
+            
+            footer {{
+                text-align: center;
+                padding: 20px 0;
+                font-size: 0.9rem;
+                color: var(--celebration-text);
+                background-color: var(--celebration-accent);
+                border-top: 5px solid var(--celebration-border);
+                border-radius: 15px 15px 0 0;
+            }}
+            
+            .celebration-banner {{
+                position: relative;
+                padding: 10px;
+                margin: 20px 0;
+                text-align: center;
+                font-size: 1.5rem;
+                font-weight: bold;
+                color: var(--celebration-bg);
+                background-color: var(--celebration-highlight);
+                border-radius: 10px;
+                animation: color-change 5s infinite;
+            }}
+            
+            @keyframes color-change {{
+                0% {{ background-color: var(--celebration-highlight); }}
+                33% {{ background-color: var(--celebration-accent); }}
+                66% {{ background-color: var(--celebration-secondary); }}
+                100% {{ background-color: var(--celebration-highlight); }}
+            }}
+            
+            .top-bar {{
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 8px;
+                background: linear-gradient(90deg, 
+                    var(--celebration-highlight) 0%, 
+                    var(--celebration-highlight) 20%, 
+                    var(--celebration-accent) 20%, 
+                    var(--celebration-accent) 40%,
+                    var(--celebration-secondary) 40%,
+                    var(--celebration-secondary) 60%,
+                    var(--celebration-border) 60%,
+                    var(--celebration-border) 80%,
+                    var(--celebration-text) 80%,
+                    var(--celebration-text) 100%);
+                animation: rainbow-shift 3s linear infinite;
+            }}
+            
+            @keyframes rainbow-shift {{
+                0% {{ background-position: 0% 50%; }}
+                100% {{ background-position: 100% 50%; }}
+            }}
+            
+            .update-time {{
+                font-style: italic;
+                opacity: 0.8;
+                color: var(--celebration-text);
+                text-align: center;
+                margin-top: 20px;
+            }}
+            
+            .hero-link {{
+                color: var(--celebration-bg);
+                text-decoration: none;
+                font-weight: bold;
+                transition: color 0.3s ease;
+            }}
+            
+            .hero-link:hover {{
+                color: var(--celebration-highlight);
+                text-decoration: underline;
+            }}
+            
+            /* Responsive styles */
+            @media (max-width: 768px) {{
+                .container {{
+                    padding: 10px;
+                }}
+                
+                h1 {{
+                    font-size: 2rem;
+                }}
+                
+                .stat-value {{
+                    font-size: 2.5rem;
+                }}
+            }}
+            
+            /* Confetti effect */
+            .confetti {{
+                position: fixed;
+                width: 10px;
+                height: 10px;
+                background-color: #f00;
+                animation: confetti-fall 5s linear infinite;
+                z-index: -1;
+            }}
+            
+            @keyframes confetti-fall {{
+                0% {{ transform: translateY(-100px) rotate(0deg); opacity: 1; }}
+                100% {{ transform: translateY(100vh) rotate(360deg); opacity: 0; }}
+            }}
+        </style>
+    </head>
+    <body>
+        <!-- Add confetti elements -->
+        <div class="confetti" style="left: 10%; animation-delay: 0s; background-color: #f00;"></div>
+        <div class="confetti" style="left: 20%; animation-delay: 0.5s; background-color: #0f0;"></div>
+        <div class="confetti" style="left: 30%; animation-delay: 1s; background-color: #00f;"></div>
+        <div class="confetti" style="left: 40%; animation-delay: 1.5s; background-color: #ff0;"></div>
+        <div class="confetti" style="left: 50%; animation-delay: 2s; background-color: #f0f;"></div>
+        <div class="confetti" style="left: 60%; animation-delay: 2.5s; background-color: #0ff;"></div>
+        <div class="confetti" style="left: 70%; animation-delay: 3s; background-color: #f80;"></div>
+        <div class="confetti" style="left: 80%; animation-delay: 3.5s; background-color: #8f0;"></div>
+        <div class="confetti" style="left: 90%; animation-delay: 4s; background-color: #08f;"></div>
+        
+        <div class="container">
+            <header>
+                <div class="top-bar"></div>
+                <h1>The Great Eight Goals</h1>
+                <div class="subtitle">Tracking Alex Ovechkin's Historic Chase</div>
+            </header>
+            
+            <div class="celebration-banner">
+                CELEBRATION MODE!
+            </div>
+            
+            <div class="stats-container">
+                <div class="stat-box">
+                    <div class="stat-label">Ovechkin's Career Goals</div>
+                    <div class="stat-value">{total_goals}</div>
+                </div>
+                
+                <div class="stat-box">
+                    <div class="stat-label">Goals Needed to Break Gretzky's Record</div>
+                    <div class="stat-value">{goals_needed}</div>
+                </div>
+                
+                <div class="projection">
+                    {formatted_projection}
+                </div>
+            </div>
+            
+            <div class="update-time">
+                Last Updated: {timestamp}
+            </div>
+        </div>
+        
+        <footer>
+            <p>Data sourced from NHL API. Created with for hockey fans.</p>
+            <p>This site tracks <a href="https://www.nhl.com/player/alex-ovechkin-8471214" class="hero-link">Alex Ovechkin's</a> progress toward breaking <a href="https://www.nhl.com/player/wayne-gretzky-8447400" class="hero-link">Wayne Gretzky's</a> all-time NHL goal record.</p>
+        </footer>
+    </body>
+    </html>
+    """
+    
+    return html_content
+
+
+def update_website(celebrate=False):
     """
     Generate a new index.html file with the latest Ovechkin stats and replace the existing one
+    
+    Args:
+        celebrate: Boolean flag to enable celebration mode with festive colors
     
     Returns:
         bool: True if website was updated successfully, False otherwise
@@ -772,8 +1102,13 @@ def update_website():
             print(error_msg)
             return False
         
-        # Generate HTML content
-        html_content = generate_html_content(stats)
+        # Generate HTML content based on celebration mode flag
+        if celebrate:
+            logger.info("Generating celebration mode HTML content")
+            html_content = generate_celebration_html_content(stats)
+        else:
+            logger.info("Generating standard HTML content")
+            html_content = generate_html_content(stats)
         
         # Define the path to the index.html file
         # Use /tmp directory if running in Lambda environment
@@ -809,6 +1144,8 @@ def update_website():
             f.write(html_content)
         
         success_msg = f"Website updated successfully at {index_path}"
+        if celebrate:
+            success_msg += " in CELEBRATION MODE!"
         logger.info(success_msg)
         print(success_msg)
         return True
@@ -825,4 +1162,10 @@ def update_website():
         return False
 
 if __name__ == "__main__":
-    update_website()
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='Update the Ovechkin Goal Tracker website')
+    parser.add_argument('--celebrate', action='store_true', help='Enable celebration mode with festive colors')
+    args = parser.parse_args()
+    
+    # Update the website with the celebration flag
+    update_website(celebrate=args.celebrate)

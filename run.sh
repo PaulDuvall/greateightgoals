@@ -128,9 +128,9 @@ print_usage() {
     echo -e "  ${GREEN}test${NC}        - Run all tests"
     echo -e "  ${GREEN}install-test-deps${NC} - Install test dependencies (pytest-cov)"
     echo -e "  ${GREEN}update-website${NC} - Update the static website with the latest Ovechkin stats"
+    echo -e "  ${GREEN}update-website --celebrate${NC} - Update the website with celebration mode"
     echo -e "  ${GREEN}update-schedule${NC} - Update the EventBridge schedule for the website updater"
     echo -e "  ${GREEN}deploy${NC}      - Deploy the static website infrastructure"
-    echo -e "  ${GREEN}update-content${NC} - Update the static website content"
     echo -e "  ${GREEN}invalidate${NC}  - Invalidate the CloudFront cache"
     echo -e "  ${GREEN}status${NC}      - Check the CloudFormation stack status"
     echo -e "  ${GREEN}help${NC}        - Display this help message"
@@ -145,7 +145,6 @@ print_usage() {
     echo -e "  ./run.sh update-website"
     echo -e "  ./run.sh update-schedule --schedule 'rate(3 minutes)'"
     echo -e "  ./run.sh deploy"
-    echo -e "  ./run.sh update-content"
     echo -e "  ./run.sh invalidate"
     echo -e "  ./run.sh status"
     echo -e "  ./run.sh help"
@@ -380,8 +379,15 @@ update_website() {
     setup_env
     activate_venv
     
-    # Run the update_website.py script
-    python3 aws-static-website/update_website.py
+    # Check if celebration mode is enabled
+    if [ "$1" = "--celebrate" ]; then
+        echo -e "${YELLOW}Celebration mode enabled!${NC}"
+        # Run the update_website.py script with celebrate flag
+        python3 aws-static-website/update_website.py --celebrate
+    else
+        # Run the update_website.py script normally
+        python3 aws-static-website/update_website.py
+    fi
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Website updated successfully!${NC}"
@@ -426,11 +432,6 @@ deploy() {
         echo -e "${RED}Deployment failed. See error messages above.${NC}"
         exit 1
     fi
-}
-
-# Function to update the static website content
-update_content() {
-    update_website
 }
 
 # Function to invalidate the CloudFront cache
@@ -514,10 +515,7 @@ case $command in
         install_test_deps
         ;;
     update-website)
-        update_website
-        ;;
-    update-content)
-        update_website
+        update_website "$@"
         ;;
     update-schedule)
         update_schedule "$@"
