@@ -740,6 +740,10 @@ def generate_celebration_html_content(stats):
     Returns:
         str: HTML content for the celebration website
     """
+    # Import required modules
+    from datetime import datetime
+    import re
+    
     # Extract key information
     total_goals = stats.get('flat_stats', {}).get('Total Number of Goals', 'N/A')
     goals_needed = stats.get('flat_stats', {}).get('Goals to Beat Gretzy', 'N/A')
@@ -747,309 +751,635 @@ def generate_celebration_html_content(stats):
     # Get the projected game dictionary from nested stats which has structured data
     projected_game_dict = stats.get('nested_stats', {}).get('record', {}).get('projected_game', {})
     
-    # Format the projection string
+    # Format the projection string exactly as requested: "Saturday, April 12, 2025, 12:30 PM ET vs Columbus Blue Jackets (Away)"
     formatted_projection = "Projected Record-Breaking Game: "
     
-    # Extract and format the date properly (reusing the same logic as in generate_html_content)
+    # Extract and format the date properly
     if projected_game_dict:
-        # Use the same date formatting logic as in generate_html_content
-        # This is intentionally simplified here - the full implementation would copy the date formatting logic
-        date_str = projected_game_dict.get('date', '')
-        if date_str:
-            formatted_projection += date_str
+        # Try to get the raw date from the dictionary and convert it to the proper format
+        raw_date = projected_game_dict.get('raw_date', '')
+        day_of_week = ''
+        
+        # If we have a raw date in YYYY-MM-DD format, convert it to "Saturday, April 12, 2025" format
+        if raw_date and re.match(r'\d{4}-\d{2}-\d{2}', raw_date):
+            try:
+                date_obj = datetime.strptime(raw_date, '%Y-%m-%d')
+                formatted_date = date_obj.strftime('%A, %B %d, %Y')
+                formatted_projection += formatted_date
+            except Exception:
+                # If date parsing fails, try to use the 'date' field directly
+                date_str = projected_game_dict.get('date', '')
+                if date_str:
+                    # Try to clean up the date string if it has European format in parentheses
+                    if '(' in date_str:
+                        parts = date_str.split('(')[0].strip()
+                        # If it's in YYYY-MM-DD format, convert it
+                        if re.match(r'\w+, \d{4}-\d{2}-\d{2}', parts):
+                            try:
+                                # Extract just the date part
+                                date_part = parts.split(', ')[1]
+                                date_obj = datetime.strptime(date_part, '%Y-%m-%d')
+                                day_of_week = parts.split(',')[0]
+                                formatted_date = f"{day_of_week}, {date_obj.strftime('%B %d, %Y')}"
+                                formatted_projection += formatted_date
+                            except Exception:
+                                formatted_projection += parts
+                        else:
+                            formatted_projection += parts
+                    else:
+                        formatted_projection += date_str
+        else:
+            # If no raw_date, use the 'date' field
+            date_str = projected_game_dict.get('date', '')
+            if date_str:
+                # Try to clean up the date string if it has European format in parentheses
+                if '(' in date_str:
+                    parts = date_str.split('(')[0].strip()
+                    # If it's in YYYY-MM-DD format, convert it
+                    if re.match(r'\w+, \d{4}-\d{2}-\d{2}', parts):
+                        try:
+                            # Extract just the date part
+                            date_part = parts.split(', ')[1]
+                            date_obj = datetime.strptime(date_part, '%Y-%m-%d')
+                            day_of_week = parts.split(',')[0]
+                            formatted_date = f"{day_of_week}, {date_obj.strftime('%B %d, %Y')}"
+                            formatted_projection += formatted_date
+                        except Exception:
+                            formatted_projection += parts
+                    else:
+                        formatted_projection += parts
+                else:
+                    formatted_projection += date_str
+    else:
+        # Fallback to raw date if structured data isn't available
+        projected_date_raw = stats.get('flat_stats', {}).get('Projected Date of Record-Breaking Goal', 'N/A')
+        if projected_date_raw and projected_date_raw != 'N/A':
+            try:
+                date_obj = datetime.strptime(projected_date_raw, '%m/%d/%Y')
+                formatted_projection += date_obj.strftime('%A, %B %d, %Y')
+            except Exception:
+                formatted_projection += projected_date_raw
     
-    # Get the timestamp
-    eastern = pytz.timezone('US/Eastern')
-    now = datetime.now(eastern)
-    timestamp = now.strftime('%Y-%m-%d %I:%M:%S %p ET')
+    # Add time if available
+    if projected_game_dict and 'time' in projected_game_dict:
+        game_time = projected_game_dict['time']
+        if game_time:
+            formatted_projection += f", {game_time}"
     
-    # Create the HTML content with celebration colors
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>The Great Eight Goals - CELEBRATION MODE!</title>
-        <link rel="icon" href="assets/gr8.svg" type="image/svg+xml">
-        <style>
-            :root {{
-                /* Celebration colors - bright and festive */
-                --celebration-bg: #FFD700; /* Gold */
-                --celebration-text: #DC143C; /* Crimson */
-                --celebration-accent: #00BFFF; /* Deep Sky Blue */
-                --celebration-highlight: #FF1493; /* Deep Pink */
-                --celebration-secondary: #32CD32; /* Lime Green */
-                --celebration-border: #9932CC; /* Dark Orchid */
-                --caps-red: #C8102E;
-                --caps-blue: #041E42;
-                --caps-white: #FFFFFF;
+    # Add team and location
+    if projected_game_dict:
+        team = projected_game_dict.get('opponent', '').split(',')[0].strip()
+        location = projected_game_dict.get('location', '')
+        
+        if team:
+            formatted_projection += f" vs {team}"
+            if location:
+                # Make sure location is properly formatted with parentheses
+                if location.startswith('(') and location.endswith(')'):
+                    formatted_projection += f" {location}"
+                else:
+                    formatted_projection += f" ({location})"
+    else:
+        # Fallback to raw game info if structured data isn't available
+        projected_game_raw = stats.get('flat_stats', {}).get('Projected Record-Breaking Game', 'N/A')
+        if projected_game_raw and projected_game_raw != 'N/A' and 'vs' in projected_game_raw:
+            # Try to extract time information
+            time_match = re.search(r'(\d{1,2}:\d{2}\s*(?:AM|PM)\s*ET)', projected_game_raw)
+            if time_match and not ", " + time_match.group(1) in formatted_projection:
+                formatted_projection += f", {time_match.group(1)}"
+            
+            team_info = projected_game_raw.split('vs')[1].strip()
+            
+            # Extract location if present
+            if '(Home)' in team_info:
+                team = team_info.replace('(Home)', '').strip()
+                formatted_projection += f" vs {team} (Home)"
+            elif '(Away)' in team_info:
+                team = team_info.replace('(Away)', '').strip()
+                formatted_projection += f" vs {team} (Away)"
+            else:
+                formatted_projection += f" vs {team_info}"
+    
+    # Calculate progress percentage
+    try:
+        progress_pct = round((int(total_goals) / 894) * 100, 1)
+    except (ValueError, ZeroDivisionError):
+        progress_pct = 0
+    
+    # Current time in ET for the footer
+    current_time = datetime.now(pytz.timezone('America/New_York')).strftime('%Y-%m-%d %I:%M:%S %p ET')
+    
+    # Create HTML content with celebration colors but same layout as standard mode
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Meta tags for proper responsive behavior and character encoding -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ovechkin Goal Tracker | CELEBRATION MODE!</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Track Alex Ovechkin's pursuit of Wayne Gretzky's all-time NHL goal record of 894 goals. Currently at {total_goals} goals with {goals_needed} to go.">
+    <meta name="keywords" content="Alex Ovechkin, Washington Capitals, NHL, hockey, goal record, Wayne Gretzky, The Great Eight">
+    <meta name="author" content="Ovechkin Goal Tracker">
+    
+    <!-- Open Graph / Social Media Meta Tags -->
+    <meta property="og:title" content="The GR8 Chase - Ovechkin Goal Tracker">
+    <meta property="og:description" content="Alex Ovechkin has scored {total_goals} goals and needs {goals_needed} more to break Wayne Gretzky's NHL record.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/f/f3/Alex_Ovechkin_2018-05-21.jpg">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="assets/gr8.svg" type="image/svg+xml">
+    <link rel="alternate icon" href="favicon.ico" type="image/x-icon">
+    
+    <!-- Google Fonts for clean typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        /* CSS Variables for consistent theming and easy updates */
+        :root {{
+            /* Celebration colors - bright and festive */
+            --caps-red: #FF1493;       /* Deep Pink instead of Caps red */
+            --caps-blue: #FFD700;      /* Gold instead of Navy blue */
+            --caps-white: #FFFFFF;     /* White */
+            --caps-light-gray: #E0FFFF; /* Light Cyan instead of Light gray */
+            --caps-dark-gray: #4B0082;  /* Indigo instead of Dark gray */
+            --caps-silver: #00BFFF;     /* Deep Sky Blue instead of Silver */
+            
+            /* Spacing variables */
+            --spacing-xs: 0.25rem;
+            --spacing-sm: 0.5rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            
+            /* Font sizes */
+            --font-small: 0.875rem;
+            --font-medium: 1rem;
+            --font-large: 1.25rem;
+            --font-xl: 1.5rem;
+            --font-xxl: 2rem;
+            --font-huge: 3rem;
+        }}
+        
+        /* Base styles and CSS Reset */
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        
+        body {{
+            font-family: 'Roboto', sans-serif;
+            line-height: 1.6;
+            background-color: var(--caps-light-gray);
+            color: var(--caps-dark-gray);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-image: linear-gradient(to bottom, #f9f9f9, #e9e9e9);
+            position: relative;
+        }}
+        
+        body::before {{
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('https://upload.wikimedia.org/wikipedia/commons/f/f3/Alex_Ovechkin_2018-05-21.jpg');
+            background-size: 80% auto;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: -1;
+            filter: contrast(1.2) saturate(1.2);
+        }}
+        
+        /* Hero section with Ovechkin's stats - more compact */
+        .hero {{
+            background-color: var(--caps-blue);
+            color: var(--caps-white);
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: 12px;
+            margin-bottom: var(--spacing-md);
+            text-align: center;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+            width: 100%;
+            max-width: 1200px;
+            background-image: linear-gradient(135deg, var(--caps-blue) 0%, #FFA500 100%);
+            position: relative;
+            overflow: hidden;
+            margin-top: var(--spacing-lg);
+            transform: translateY(0);
+            transition: transform 0.3s ease;
+            animation: pulse 2s infinite;
+        }}
+        
+        @keyframes pulse {{
+            0% {{ transform: translateY(0) scale(1); }}
+            50% {{ transform: translateY(-5px) scale(1.01); }}
+            100% {{ transform: translateY(0) scale(1); }}
+        }}
+        
+        .hero:hover {{
+            transform: translateY(-5px);
+        }}
+        
+        .hero::before {{
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('https://www.transparenttextures.com/patterns/hockey.png');
+            opacity: 0.1;
+        }}
+        
+        .hero h1 {{
+            font-size: var(--font-xxl);
+            margin-bottom: var(--spacing-sm);
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            display: inline-block;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }}
+        
+        .hero p {{
+            font-size: var(--font-large);
+            margin-bottom: var(--spacing-md);
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }}
+        
+        /* Main content container */
+        .container {{
+            width: 100%;
+            max-width: 1200px;
+            padding: 0 var(--spacing-md);
+            margin: 0 auto;
+            flex: 1;
+        }}
+        
+        /* Stats grid with responsive layout */
+        .stats-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+        }}
+        
+        .stat-card {{
+            background-color: var(--caps-white);
+            border-radius: 8px;
+            padding: var(--spacing-lg);
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            border-top: 4px solid var(--caps-red);
+        }}
+        
+        .stat-card:hover {{
+            transform: translateY(-5px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+        }}
+        
+        .stat-card h2 {{
+            font-size: var(--font-large);
+            color: var(--caps-dark-gray);
+            margin-bottom: var(--spacing-sm);
+            font-family: 'Montserrat', sans-serif;
+        }}
+        
+        .stat-value {{
+            font-size: var(--font-huge);
+            font-weight: 700;
+            color: var(--caps-red);
+            margin-bottom: var(--spacing-sm);
+            line-height: 1.2;
+        }}
+        
+        .stat-caption {{
+            font-size: var(--font-small);
+            color: var(--caps-dark-gray);
+            opacity: 0.8;
+        }}
+        
+        /* Progress bar styling */
+        .progress-container {{
+            background-color: var(--caps-white);
+            border-radius: 8px;
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }}
+        
+        .progress-container h2 {{
+            font-size: var(--font-large);
+            color: var(--caps-dark-gray);
+            margin-bottom: var(--spacing-md);
+            font-family: 'Montserrat', sans-serif;
+            text-align: center;
+        }}
+        
+        .progress-bar-container {{
+            width: 100%;
+            height: 30px;
+            background-color: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: var(--spacing-sm);
+            position: relative;
+        }}
+        
+        .progress-bar {{
+            height: 100%;
+            background-image: linear-gradient(to right, var(--caps-blue), var(--caps-red));
+            border-radius: 15px;
+            transition: width 1s ease-in-out;
+            position: relative;
+            overflow: hidden;
+        }}
+        
+        .progress-bar::after {{
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: linear-gradient(45deg, 
+                                          rgba(255, 255, 255, 0.2) 25%, 
+                                          transparent 25%, 
+                                          transparent 50%, 
+                                          rgba(255, 255, 255, 0.2) 50%, 
+                                          rgba(255, 255, 255, 0.2) 75%, 
+                                          transparent 75%, 
+                                          transparent);
+            background-size: 30px 30px;
+            animation: move 2s linear infinite;
+            border-radius: 15px;
+        }}
+        
+        @keyframes move {{
+            0% {{ background-position: 0 0; }}
+            100% {{ background-position: 30px 0; }}
+        }}
+        
+        .progress-text {{
+            display: flex;
+            justify-content: space-between;
+            font-size: var(--font-small);
+            color: var(--caps-dark-gray);
+        }}
+        
+        .progress-percentage {{
+            font-weight: bold;
+            color: var(--caps-red);
+        }}
+        
+        /* Projection card styling */
+        .projection-card {{
+            background-color: var(--caps-white);
+            border-radius: 8px;
+            padding: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            border-left: 4px solid var(--caps-blue);
+        }}
+        
+        .projection-card h2 {{
+            font-size: var(--font-large);
+            color: var(--caps-dark-gray);
+            margin-bottom: var(--spacing-md);
+            font-family: 'Montserrat', sans-serif;
+        }}
+        
+        .projection-text {{
+            font-size: var(--font-medium);
+            line-height: 1.6;
+            color: var(--caps-dark-gray);
+        }}
+        
+        /* Footer styling */
+        footer {{
+            background-color: var(--caps-blue);
+            color: var(--caps-white);
+            padding: var(--spacing-md);
+            text-align: center;
+            width: 100%;
+            margin-top: auto;
+            font-size: var(--font-small);
+            position: relative;
+        }}
+        
+        footer::before {{
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--caps-red), var(--caps-blue));
+        }}
+        
+        .update-time {{
+            font-weight: bold;
+        }}
+        
+        .built-by {{
+            margin-top: var(--spacing-sm);
+        }}
+        
+        .footer-link {{
+            color: var(--caps-white);
+            text-decoration: underline;
+            opacity: 0.9;
+        }}
+        
+        .footer-link:hover {{
+            opacity: 1;
+            text-decoration: none;
+        }}
+        
+        .attribution {{
+            margin-top: var(--spacing-sm);
+            font-size: 0.8rem;
+            opacity: 0.8;
+        }}
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {{
+            .hero h1 {{
+                font-size: var(--font-xl);
             }}
             
-            body {{
-                font-family: 'Arial', sans-serif;
-                margin: 0;
-                padding: 0;
-                background-color: var(--celebration-bg);
-                color: var(--celebration-text);
-                line-height: 1.6;
-            }}
-            
-            .container {{
-                max-width: 800px;
-                margin: 0 auto;
-                padding: 20px;
-            }}
-            
-            header {{
-                background-color: var(--celebration-accent);
-                color: var(--celebration-bg);
-                padding: 20px 0;
-                text-align: center;
-                position: relative;
-                border-bottom: 5px solid var(--celebration-border);
-                border-radius: 0 0 15px 15px;
-                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-                animation: pulse 2s infinite;
-            }}
-            
-            @keyframes pulse {{
-                0% {{ transform: scale(1); }}
-                50% {{ transform: scale(1.02); }}
-                100% {{ transform: scale(1); }}
-            }}
-            
-            h1 {{
-                font-size: 2.5rem;
-                margin: 0;
-                text-transform: uppercase;
-                letter-spacing: 2px;
-                text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-            }}
-            
-            .subtitle {{
-                font-size: 1.2rem;
-                margin-top: 5px;
-                font-style: italic;
-            }}
-            
-            .stats-container {{
-                background-color: var(--celebration-secondary);
-                border-radius: 15px;
-                padding: 30px;
-                margin: 30px 0;
-                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-                border: 3px dashed var(--celebration-border);
-                animation: border-dance 4s infinite linear;
-            }}
-            
-            @keyframes border-dance {{
-                0% {{ border-style: dashed; }}
-                33% {{ border-style: dotted; }}
-                66% {{ border-style: double; }}
-                100% {{ border-style: dashed; }}
-            }}
-            
-            .stat-box {{
-                text-align: center;
-                margin-bottom: 20px;
-                padding: 15px;
-                background-color: var(--celebration-bg);
-                border-radius: 10px;
-                box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-                transition: transform 0.3s ease;
-            }}
-            
-            .stat-box:hover {{
-                transform: translateY(-5px);
-                box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
-            }}
-            
-            .stat-label {{
-                font-size: 1.2rem;
-                font-weight: bold;
-                margin-bottom: 10px;
-                color: var(--celebration-highlight);
+            .hero p {{
+                font-size: var(--font-medium);
             }}
             
             .stat-value {{
-                font-size: 3rem;
-                font-weight: bold;
-                color: var(--celebration-text);
-                text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+                font-size: var(--font-xxl);
             }}
             
-            .projection {{
-                font-size: 1.2rem;
-                margin-top: 30px;
-                padding: 15px;
-                background-color: var(--celebration-highlight);
-                color: white;
-                border-radius: 10px;
-                text-align: center;
-                font-weight: bold;
-                box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+            .stats-grid {{
+                grid-template-columns: 1fr;
             }}
-            
-            footer {{
-                text-align: center;
-                padding: 20px 0;
-                font-size: 0.9rem;
-                color: var(--celebration-text);
-                background-color: var(--celebration-accent);
-                border-top: 5px solid var(--celebration-border);
-                border-radius: 15px 15px 0 0;
-            }}
-            
-            .celebration-banner {{
-                position: relative;
-                padding: 10px;
-                margin: 20px 0;
-                text-align: center;
-                font-size: 1.5rem;
-                font-weight: bold;
-                color: var(--celebration-bg);
-                background-color: var(--celebration-highlight);
-                border-radius: 10px;
-                animation: color-change 5s infinite;
-            }}
-            
-            @keyframes color-change {{
-                0% {{ background-color: var(--celebration-highlight); }}
-                33% {{ background-color: var(--celebration-accent); }}
-                66% {{ background-color: var(--celebration-secondary); }}
-                100% {{ background-color: var(--celebration-highlight); }}
-            }}
-            
-            .top-bar {{
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 8px;
-                background: linear-gradient(90deg, 
-                    var(--celebration-highlight) 0%, 
-                    var(--celebration-highlight) 20%, 
-                    var(--celebration-accent) 20%, 
-                    var(--celebration-accent) 40%,
-                    var(--celebration-secondary) 40%,
-                    var(--celebration-secondary) 60%,
-                    var(--celebration-border) 60%,
-                    var(--celebration-border) 80%,
-                    var(--celebration-text) 80%,
-                    var(--celebration-text) 100%);
-                animation: rainbow-shift 3s linear infinite;
-            }}
-            
-            @keyframes rainbow-shift {{
-                0% {{ background-position: 0% 50%; }}
-                100% {{ background-position: 100% 50%; }}
-            }}
-            
-            .update-time {{
-                font-style: italic;
-                opacity: 0.8;
-                color: var(--celebration-text);
-                text-align: center;
-                margin-top: 20px;
-            }}
-            
-            .hero-link {{
-                color: var(--celebration-bg);
-                text-decoration: none;
-                font-weight: bold;
-                transition: color 0.3s ease;
-            }}
-            
-            .hero-link:hover {{
-                color: var(--celebration-highlight);
-                text-decoration: underline;
-            }}
-            
-            /* Responsive styles */
-            @media (max-width: 768px) {{
-                .container {{
-                    padding: 10px;
-                }}
-                
-                h1 {{
-                    font-size: 2rem;
-                }}
-                
-                .stat-value {{
-                    font-size: 2.5rem;
-                }}
-            }}
-            
-            /* Confetti effect */
-            .confetti {{
-                position: fixed;
-                width: 10px;
-                height: 10px;
-                background-color: #f00;
-                animation: confetti-fall 5s linear infinite;
-                z-index: -1;
-            }}
-            
-            @keyframes confetti-fall {{
-                0% {{ transform: translateY(-100px) rotate(0deg); opacity: 1; }}
-                100% {{ transform: translateY(100vh) rotate(360deg); opacity: 0; }}
-            }}
-        </style>
-    </head>
-    <body>
-        <!-- Add confetti elements -->
-        <div class="confetti" style="left: 10%; animation-delay: 0s; background-color: #f00;"></div>
-        <div class="confetti" style="left: 20%; animation-delay: 0.5s; background-color: #0f0;"></div>
-        <div class="confetti" style="left: 30%; animation-delay: 1s; background-color: #00f;"></div>
-        <div class="confetti" style="left: 40%; animation-delay: 1.5s; background-color: #ff0;"></div>
-        <div class="confetti" style="left: 50%; animation-delay: 2s; background-color: #f0f;"></div>
-        <div class="confetti" style="left: 60%; animation-delay: 2.5s; background-color: #0ff;"></div>
-        <div class="confetti" style="left: 70%; animation-delay: 3s; background-color: #f80;"></div>
-        <div class="confetti" style="left: 80%; animation-delay: 3.5s; background-color: #8f0;"></div>
-        <div class="confetti" style="left: 90%; animation-delay: 4s; background-color: #08f;"></div>
+        }}
         
-        <div class="container">
-            <header>
-                <div class="top-bar"></div>
-                <h1>The Great Eight Goals</h1>
-                <div class="subtitle">Tracking Alex Ovechkin's Historic Chase</div>
-            </header>
+        /* Celebration mode specific styles */
+        .celebration-banner {{
+            background-color: var(--caps-red);
+            color: var(--caps-white);
+            text-align: center;
+            padding: var(--spacing-sm);
+            font-weight: bold;
+            margin-bottom: var(--spacing-md);
+            border-radius: 8px;
+            animation: color-change 5s infinite;
+        }}
+        
+        @keyframes color-change {{
+            0% {{ background-color: var(--caps-red); }}
+            33% {{ background-color: #9932CC; }}
+            66% {{ background-color: #32CD32; }}
+            100% {{ background-color: var(--caps-red); }}
+        }}
+        
+        /* Refresh button styling */
+        .refresh-button {{
+            background-color: var(--caps-blue);
+            color: var(--caps-white);
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: var(--font-small);
+            margin-left: 10px;
+            transition: background-color 0.3s ease;
+        }}
+        
+        .refresh-button:hover {{
+            background-color: var(--caps-red);
+        }}
+    </style>
+    
+    <!-- JavaScript for data fetching and dynamic updates -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {{
+            // Function to fetch the latest stats
+            function fetchLatestStats() {{
+                const statsUrl = new URL('data/stats.json', window.location.href);
+                
+                // Add cache busting parameters
+                statsUrl.searchParams.append('_t', new Date().getTime());
+                statsUrl.searchParams.append('_r', Math.random());
+                
+                fetch(statsUrl, {{
+                    method: 'GET',
+                    headers: {{
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }},
+                    cache: 'no-store'
+                }})
+                .then(response => response.json())
+                .then(data => {{
+                    // Update the stats on the page
+                    document.getElementById('total-goals').textContent = data.flat_stats['Total Number of Goals'];
+                    document.getElementById('goals-needed').textContent = data.flat_stats['Goals to Beat Gretzy'];
+                    document.getElementById('last-updated').textContent = data.flat_stats['Last Updated'];
+                    
+                    // Update progress bar
+                    const totalGoals = parseInt(data.flat_stats['Total Number of Goals']);
+                    const progressPct = (totalGoals / 894) * 100;
+                    document.getElementById('progress-bar').style.width = progressPct + '%';
+                    document.getElementById('progress-percentage').textContent = progressPct.toFixed(1) + '%';
+                }})
+                .catch(error => {{
+                    console.error('Error fetching stats:', error);
+                }});
+            }}
             
-            <div class="celebration-banner">
-                CELEBRATION MODE!
+            // Add click event to refresh button
+            const refreshButton = document.getElementById('refresh-button');
+            if (refreshButton) {{
+                refreshButton.addEventListener('click', function() {{
+                    fetchLatestStats();
+                }});
+            }}
+        }});
+    </script>
+</head>
+<body>
+    <div class="celebration-banner">
+        🎉 CELEBRATION MODE! 🎉 The Great Eight is chasing history!
+    </div>
+    
+    <header class="hero">
+        <h1>The GR8 Chase</h1>
+        <p>Track Alex Ovechkin's pursuit of Wayne Gretzky's all-time NHL goal record of 894 goals</p>
+    </header>
+    
+    <main class="container">
+        <div class="projection-card">
+            <h2>Record Projection</h2>
+            <p class="projection-text">{formatted_projection}</p>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h2>Ovechkin's Goals</h2>
+                <div class="stat-value" id="total-goals">{total_goals}</div>
+                <div class="stat-caption">Career goals and counting</div>
             </div>
             
-            <div class="stats-container">
-                <div class="stat-box">
-                    <div class="stat-label">Ovechkin's Career Goals</div>
-                    <div class="stat-value">{total_goals}</div>
-                </div>
-                
-                <div class="stat-box">
-                    <div class="stat-label">Goals Needed to Break Gretzky's Record</div>
-                    <div class="stat-value">{goals_needed}</div>
-                </div>
-                
-                <div class="projection">
-                    {formatted_projection}
-                </div>
-            </div>
-            
-            <div class="update-time">
-                Last Updated: {timestamp}
+            <div class="stat-card">
+                <h2>Goals Needed</h2>
+                <div class="stat-value" id="goals-needed">{goals_needed}</div>
+                <div class="stat-caption">To break Gretzky's record</div>
             </div>
         </div>
         
-        <footer>
-            <p>Data sourced from NHL API. Created with for hockey fans.</p>
-            <p>This site tracks <a href="https://www.nhl.com/player/alex-ovechkin-8471214" class="hero-link">Alex Ovechkin's</a> progress toward breaking <a href="https://www.nhl.com/player/wayne-gretzky-8447400" class="hero-link">Wayne Gretzky's</a> all-time NHL goal record.</p>
-        </footer>
-    </body>
-    </html>
+        <div class="progress-container">
+            <h2>Progress to Record</h2>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progress-bar" style="width: {progress_pct}%"></div>
+            </div>
+            <div class="progress-text">
+                <span>0</span>
+                <span class="progress-percentage" id="progress-percentage">{progress_pct}%</span>
+                <span>894</span>
+            </div>
+        </div>
+    </main>
+    
+    <footer>
+        <p>Last updated: <span class="update-time">{current_time}</span></p>
+        <p class="built-by">Built by <a href="http://github.com/PaulDuvall/" class="footer-link" target="_blank" rel="noopener">Paul Duvall</a></p>
+        <p class="attribution">Background image: <a href="https://commons.wikimedia.org/wiki/File:Alex_Ovechkin_2018-05-21.jpg" class="footer-link">Alex Ovechkin</a> by Michael Miller, <a href="https://creativecommons.org/licenses/by-sa/4.0/" class="footer-link">CC BY-SA 4.0</a></p>
+    </footer>
+</body>
+</html>
     """
     
-    return html_content
+    return html
 
 
 def update_website(celebrate=False):
