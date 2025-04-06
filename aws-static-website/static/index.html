@@ -4,16 +4,16 @@
     <!-- Meta tags for proper responsive behavior and character encoding -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HISTORY MADE! Ovechkin Breaks Gretzky's Record | Washington Capitals</title>
+    <title>Ovechkin Goal Tracker | Washington Capitals</title>
     
     <!-- SEO Meta Tags -->
-    <meta name="description" content="Alex Ovechkin has made history by breaking Wayne Gretzky's all-time NHL goal record of 894 goals. The Great 8 now stands alone with 895 goals!">
-    <meta name="keywords" content="Alex Ovechkin, Washington Capitals, NHL, hockey, goal record, Wayne Gretzky, The Great Eight, record breaker">
+    <meta name="description" content="Track Alex Ovechkin's pursuit of Wayne Gretzky's all-time NHL goal record of 894 goals. Currently at 894 goals with 1 to go.">
+    <meta name="keywords" content="Alex Ovechkin, Washington Capitals, NHL, hockey, goal record, Wayne Gretzky, The Great Eight">
     <meta name="author" content="Ovechkin Goal Tracker">
     
     <!-- Open Graph / Social Media Meta Tags -->
-    <meta property="og:title" content="HISTORY MADE! Ovechkin Breaks Gretzky's Record">
-    <meta property="og:description" content="Alex Ovechkin has made history by breaking Wayne Gretzky's all-time NHL goal record with 895 goals!">
+    <meta property="og:title" content="The GR8 Chase - Ovechkin Goal Tracker">
+    <meta property="og:description" content="Alex Ovechkin has scored 894 goals and needs 1 more to break Wayne Gretzky's NHL record.">
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://upload.wikimedia.org/wikipedia/commons/f/f3/Alex_Ovechkin_2018-05-21.jpg">
     
@@ -26,9 +26,6 @@
     
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
-    <!-- Confetti JS for celebration effects -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
     
     <style>
         /* CSS Variables for consistent theming and easy updates */
@@ -97,7 +94,7 @@
             filter: contrast(1.2) saturate(1.2);
         }
         
-        /* Hero section with celebration announcement */
+        /* Hero section with Ovechkin's stats - more compact */
         .hero {
             background-color: var(--caps-blue);
             color: var(--caps-white);
@@ -170,9 +167,10 @@
             max-width: 800px;
             margin: var(--spacing-md) auto 0;
             font-weight: 700;
+            color: var(--caps-white);
         }
         
-        .record-banner {
+        .projection-banner {
             background-color: var(--caps-red);
             color: var(--caps-white);
             padding: var(--spacing-md) var(--spacing-lg);
@@ -194,69 +192,104 @@
             100% { transform: translateY(0px); }
         }
         
-        .record-banner i {
+        .projection-banner i {
             margin-right: var(--spacing-xs);
             color: var(--caps-gold);
         }
         
-        /* Main content wrapper */
+        /* Top stats and video layout */
+        .top-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr 2fr;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+            width: 100%;
+            align-items: stretch;
+        }
+        
+        .top-content .stat-card {
+            margin: 0;
+            min-height: 280px;
+        }
+        
+        .top-content .video-section {
+            margin: 0;
+            grid-column: 3;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--caps-white);
+            border-radius: 12px;
+            padding: var(--spacing-md);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+            border: 4px solid var(--caps-gold);
+            min-height: 280px;
+        }
+        
+        .top-content .video-section h3 {
+            margin-top: 0;
+            margin-bottom: var(--spacing-sm);
+            color: var(--caps-blue);
+            font-size: var(--font-xl);
+            font-weight: 700;
+            position: relative;
+            display: inline-block;
+        }
+        
+        .top-content .video-section h3::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            width: 50px;
+            height: 3px;
+            background-color: var(--caps-red);
+            border-radius: 3px;
+        }
+        
+        .top-content .video-container {
+            flex: 1;
+            margin-bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .top-content .stats-container {
+            display: contents;
+        }
+        
+        /* Main content wrapper - centers content and uses grid layout */
         .content-wrapper {
             display: grid;
-            grid-template-columns: 1fr;
-            gap: var(--spacing-lg);
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
             width: 100%;
             max-width: 1200px;
-            margin-bottom: var(--spacing-lg);
+            margin-bottom: var(--spacing-md);
             padding: 0 var(--spacing-md);
         }
         
-        /* Stats cards - celebratory style */
+        /* Stats cards styling */
         .stats-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: var(--spacing-lg);
-            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
         }
         
         .stat-card {
             background-color: var(--caps-white);
             border-radius: 12px;
-            padding: var(--spacing-lg);
+            padding: var(--spacing-md);
+            text-align: center;
             box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            flex: 1;
             border: 4px solid var(--caps-gold);
-            position: relative;
-            overflow: hidden;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            align-items: center;
-            text-align: center;
-            min-height: 250px;
-            transform-style: preserve-3d;
-            perspective: 1000px;
-            animation: card-entrance 1s ease-out forwards;
-        }
-        
-        @keyframes card-entrance {
-            from { opacity: 0; transform: translateY(50px) rotateX(10deg); }
-            to { opacity: 1; transform: translateY(0) rotateX(0); }
-        }
-        
-        .stat-card::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 50%;
-            height: 50%;
-            background-image: linear-gradient(135deg, transparent 50%, rgba(200, 16, 46, 0.1) 50%);
-            border-radius: 0 0 12px 0;
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-10px) scale(1.03);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            min-height: 280px; /* Fixed height to match video */
         }
         
         .stat-card h3 {
@@ -264,8 +297,8 @@
             margin-bottom: var(--spacing-md);
             font-size: var(--font-xl);
             font-family: 'Montserrat', sans-serif;
-            display: inline-block;
             position: relative;
+            display: inline-block;
             font-weight: 700;
         }
         
@@ -274,10 +307,10 @@
             position: absolute;
             bottom: -8px;
             left: 0;
-            width: 100%;
+            width: 50px;
             height: 3px;
             background-color: var(--caps-red);
-            border-radius: 2px;
+            border-radius: 3px;
         }
         
         .stat-value {
@@ -314,10 +347,172 @@
             background-color: rgba(255, 215, 0, 0.15);
         }
         
+        /* Records section - showcases Ovechkin's NHL records */
+        .records-section {
+            background-color: var(--caps-white);
+            border-radius: 12px;
+            padding: var(--spacing-lg);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+            width: 100%;
+            grid-column: 1 / -1; /* Spans full width in the grid */
+            border: 4px solid var(--caps-gold);
+            position: relative;
+            overflow: hidden;
+            animation: pulse 2s infinite alternate;
+        }
+        
+        .records-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 150px;
+            height: 150px;
+            background-image: radial-gradient(circle, rgba(4, 30, 66, 0.05) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        
+        .records-section h3 {
+            color: var(--caps-blue);
+            margin-bottom: var(--spacing-md);
+            font-size: var(--font-xl);
+            font-family: 'Montserrat', sans-serif;
+            position: relative;
+            display: inline-block;
+            font-weight: 700;
+        }
+        
+        .records-section h3::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            width: 50px;
+            height: 3px;
+            background-color: var(--caps-red);
+            border-radius: 3px;
+        }
+        
+        .records-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-md);
+        }
+        
+        .record-item {
+            background-color: var(--caps-light-gray);
+            padding: var(--spacing-md);
+            border-radius: 8px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border-left: 4px solid var(--caps-red);
+        }
+        
+        .record-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+        }
+        
+        .record-icon {
+            font-size: var(--font-huge);
+            margin-right: var(--spacing-md);
+            color: var(--caps-gold);
+            background-color: var(--caps-blue);
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .record-details {
+            font-size: var(--font-medium);
+        }
+        
+        .record-details h4 {
+            font-weight: bold;
+            margin-bottom: var(--spacing-xs);
+            color: var(--caps-blue);
+            font-size: var(--font-large);
+        }
+        
+        .record-details p {
+            color: var(--caps-dark-gray);
+            font-size: var(--font-medium);
+        }
+        
+        /* Video section styling */
+        .video-section {
+            background-color: var(--caps-white);
+            border-radius: 12px;
+            padding: var(--spacing-lg);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+            width: 100%;
+            grid-column: 1 / -1; /* Spans full width in the grid */
+            border: 4px solid var(--caps-gold);
+            position: relative;
+            overflow: hidden;
+            margin-top: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+        }
+        
+        .video-section h3 {
+            color: var(--caps-blue);
+            margin-bottom: var(--spacing-md);
+            font-size: var(--font-xl);
+            font-family: 'Montserrat', sans-serif;
+            position: relative;
+            display: inline-block;
+            font-weight: 700;
+        }
+        
+        .video-section h3::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            width: 50px;
+            height: 3px;
+            background-color: var(--caps-red);
+            border-radius: 3px;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            height: 0;
+            overflow: hidden;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            border: none;
+        }
+        
         /* Responsive design adjustments */
         @media (max-width: 768px) {
             .stats-container {
-                grid-template-columns: 1fr;
+                flex-direction: column;
+                gap: var(--spacing-md);
+            }
+            
+            .stat-card {
+                width: 100%;
+                min-height: 220px;
             }
             
             .hero h1 {
@@ -328,28 +523,40 @@
                 font-size: var(--font-large);
             }
             
-            .stat-value {
-                font-size: var(--font-xxl);
+            .records-grid {
+                grid-template-columns: 1fr;
             }
             
-            .stat-value.record {
-                font-size: calc(var(--font-xxl) * 1.2);
+            .video-container {
+                padding-bottom: 75%; /* Adjusted aspect ratio for mobile */
+            }
+            
+            .top-content {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+            }
+            
+            .top-content .video-section {
+                grid-column: 1;
+                margin-top: var(--spacing-md);
+                min-height: 220px;
             }
         }
         
         /* Animation for page elements */
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(30px); }
+            from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
         
-        .hero, .stat-card {
-            animation: fadeIn 1s ease-out forwards;
+        .hero, .stat-card, .records-section {
+            animation: fadeIn 0.8s ease-out forwards;
         }
         
-        .hero { animation-delay: 0.2s; }
-        .stat-card:nth-child(1) { animation-delay: 0.4s; }
-        .stat-card:nth-child(2) { animation-delay: 0.6s; }
+        .hero { animation-delay: 0s; }
+        .stat-card:nth-child(1) { animation-delay: 0.1s; }
+        .stat-card:nth-child(2) { animation-delay: 0.2s; }
+        .records-section { animation-delay: 0.3s; }
         
         /* Footer with update time */
         footer {
@@ -361,36 +568,57 @@
             margin-top: auto;
             font-size: var(--font-small);
             position: relative;
-            border-top: 4px solid var(--caps-gold);
+        }
+        
+        footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--caps-white) 0%, var(--caps-white) 30%, var(--caps-red) 30%, var(--caps-red) 100%);
         }
         
         .update-time {
             font-style: italic;
-            opacity: 0.9;
+            opacity: 0.8;
         }
         
         .hero-link {
-            color: var(--caps-gold);
+            color: var(--caps-white);
             text-decoration: none;
-            font-weight: bold;
             transition: all 0.3s ease;
         }
         
         .hero-link:hover {
             text-decoration: underline;
-            text-shadow: 0 0 10px var(--caps-gold);
+            color: var(--caps-silver);
+        }
+        
+        /* Accessibility styles */
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            margin: -1px;
+            padding: 0;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
         }
         
         .footer-link {
             color: var(--caps-white);
             text-decoration: underline;
             opacity: 0.9;
+            transition: all 0.3s ease;
         }
         
         .footer-link:hover {
             opacity: 1;
             text-decoration: none;
-            color: var(--caps-gold);
+            color: var(--caps-silver);
         }
         
         .attribution {
@@ -405,64 +633,21 @@
             opacity: 0.8;
         }
         
-        /* Celebration elements */
-        .celebration-badge {
-            position: absolute;
-            top: -25px;
-            right: -25px;
-            width: 100px;
-            height: 100px;
-            background-color: var(--caps-gold);
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: 900;
-            font-size: 1.2rem;
-            color: var(--caps-blue);
-            transform: rotate(15deg);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            z-index: 10;
-            animation: spin 10s linear infinite;
+        /* Refresh button styling */
+        .refresh-button {
+            background-color: var(--caps-blue);
+            color: var(--caps-white);
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            margin-left: 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background-color 0.3s ease;
         }
         
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .celebration-text {
-            font-size: var(--font-xl);
-            font-weight: 700;
-            color: var(--caps-gold);
-            margin-top: var(--spacing-md);
-            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
-            animation: celebrate-pulse 2s infinite alternate;
-        }
-        
-        @keyframes celebrate-pulse {
-            0% { transform: scale(1); }
-            100% { transform: scale(1.05); }
-        }
-        
-        .celebration-emoji {
-            font-size: 2rem;
-            margin: 0 0.3rem;
-            display: inline-block;
-            animation: bounce 1s infinite alternate;
-        }
-        
-        @keyframes bounce {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(-10px); }
-        }
-        
-        .celebration-emoji:nth-child(2) {
-            animation-delay: 0.2s;
-        }
-        
-        .celebration-emoji:nth-child(3) {
-            animation-delay: 0.4s;
+        .refresh-button:hover {
+            background-color: var(--caps-red);
         }
     </style>
 </head>
@@ -472,8 +657,8 @@
     {
         "@context": "https://schema.org",
         "@type": "SportsEvent",
-        "name": "Alex Ovechkin Breaks NHL Goal Record",
-        "description": "Alex Ovechkin has broken Wayne Gretzky's all-time NHL goal record with 895 goals.",
+        "name": "Alex Ovechkin's NHL Goal Record Chase",
+        "description": "Tracking Alex Ovechkin's pursuit of Wayne Gretzky's all-time NHL goal record of 894 goals.",
         "performer": {
             "@type": "Person",
             "name": "Alex Ovechkin",
@@ -487,44 +672,82 @@
             "name": "National Hockey League",
             "url": "https://www.nhl.com/"
         },
-        "startDate": "Sunday, April 06, 2025"
+        "startDate": "Projected Record-Breaking Game: Thursday, April 10, 2025, 07:30 PM ET vs Carolina Hurricanes (Home)"
     }
     </script>
     
     <header>
-        <nav aria-label="Main Navigation" style="display: none;">
+        <nav aria-label="Main Navigation" class="visually-hidden">
             <ul>
-                <li><a href="#stats">Historic Achievement</a></li>
+                <li><a href="#stats">Current Stats</a></li>
+                <li><a href="#records">Ovechkin's NHL Records</a></li>
             </ul>
         </nav>
     </header>
     
     <main>
         <div class="hero">
-            <div class="celebration-badge">HISTORY!</div>
-            <h1>RECORD BROKEN!</h1>
+            <h1>The GR8 Chase</h1>
             <p><a href="https://www.nhl.com/capitals/player/alex-ovechkin-8471214" target="_blank" class="hero-link">Alex Ovechkin</a> has officially surpassed Wayne Gretzky to become the NHL's all-time leading goal scorer!</p>
-            <div class="record-banner">
-                <i class="fas fa-trophy"></i> Record-Breaking Goal: Sunday, April 06, 2025
+            <div class="projection-banner">
+                <i class="fas fa-calendar-alt"></i> Projected Record-Breaking Game: Thursday, April 10, 2025, 07:30 PM ET vs Carolina Hurricanes (Home)
+            </div>
+        </div>
+        
+        <div class="top-content">
+            <div class="stats-container">
+                <div class="stat-card" id="stats" aria-labelledby="current-goals">
+                    <h3 id="current-goals">Ovechkin's Goals</h3>
+                    <span class="stat-value record" aria-live="polite">894</span>
+                    <p>Current NHL career goals</p>
+                </div>
+                
+                <div class="stat-card" aria-labelledby="goals-needed">
+                    <h3 id="goals-needed">Goals to Break Record</h3>
+                    <span class="stat-value" aria-live="polite">1</span>
+                    <p>Goals needed to surpass Gretzky</p>
+                </div>
+            </div>
+            
+            <div class="video-section">
+                <h3>Ovechkin's Record-Breaking Goal</h3>
+                <div class="video-container">
+                    <iframe src="https://www.youtube.com/embed/pPazSfir7-k" title="Alex Ovechkin Record-Breaking Goal" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                </div>
             </div>
         </div>
         
         <div class="content-wrapper">
-            <div class="stats-container">
-                <div class="stat-card" id="stats">
-                    <h3>Gretzky's Record</h3>
-                    <span class="stat-value">894</span>
-                    <p>Wayne Gretzky's previous NHL record</p>
-                </div>
-                
-                <div class="stat-card">
-                    <h3>Ovechkin's Goals</h3>
-                    <span class="stat-value record">895</span>
-                    <p>The new all-time NHL goal record!</p>
-                    <div class="celebration-text">
-                        <span class="celebration-emoji">🏒</span>
-                        <span class="celebration-emoji">🏆</span>
-                        <span class="celebration-emoji">🎉</span>
+            <div class="records-section" id="records" aria-labelledby="records-heading">
+                <h3 id="records-heading">Ovechkin's NHL Records</h3>
+                <div class="records-container">
+                    <div class="record-item">
+                        <div class="record-icon"><i class="fas fa-trophy"></i></div>
+                        <div class="record-details">
+                            <h4>Most Power Play Goals</h4>
+                            <p>All-time NHL leader with 300+ power play goals</p>
+                        </div>
+                    </div>
+                    <div class="record-item">
+                        <div class="record-icon"><i class="fas fa-fire"></i></div>
+                        <div class="record-details">
+                            <h4>Most Goals with One Franchise</h4>
+                            <p>All goals scored with the Washington Capitals</p>
+                        </div>
+                    </div>
+                    <div class="record-item">
+                        <div class="record-icon"><i class="fas fa-bolt"></i></div>
+                        <div class="record-details">
+                            <h4>Most Seasons with 50+ Goals</h4>
+                            <p>Nine seasons with 50 or more goals</p>
+                        </div>
+                    </div>
+                    <div class="record-item">
+                        <div class="record-icon"><i class="fas fa-crown"></i></div>
+                        <div class="record-details">
+                            <h4>Most Goals by a Left Winger</h4>
+                            <p>Surpassed Luc Robitaille's previous record</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -532,55 +755,16 @@
     </main>
     
     <footer>
-        <p>Last updated: <span class="update-time">2025-04-06 11:02:32 AM ET</span></p>
+        <p>Last updated: <span class="update-time">2025-04-06 04:26:04 PM ET</span> <button id="refresh-btn" class="refresh-button"><i class="fas fa-sync-alt"></i> Refresh</button></p>
         <p class="built-by">Built by <a href="http://github.com/PaulDuvall/" class="footer-link" target="_blank" rel="noopener">Paul Duvall</a></p>
         <p class="attribution">Background image: <a href="https://commons.wikimedia.org/wiki/File:Alex_Ovechkin_2018-05-21.jpg" class="footer-link">Alex Ovechkin</a> by Michael Miller, <a href="https://creativecommons.org/licenses/by-sa/4.0/" class="footer-link">CC BY-SA 4.0</a></p>
     </footer>
     
-    <!-- Confetti celebration script -->
     <script>
-        // Run confetti when page loads
-        window.onload = function() {
-            // Run the confetti animation
-            var duration = 8 * 1000;
-            var animationEnd = Date.now() + duration;
-            var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
-
-            function randomInRange(min, max) {
-                return Math.random() * (max - min) + min;
-            }
-
-            var interval = setInterval(function() {
-                var timeLeft = animationEnd - Date.now();
-
-                if (timeLeft <= 0) {
-                    return clearInterval(interval);
-                }
-
-                var particleCount = 50 * (timeLeft / duration);
-                // Washington Capitals colors
-                confetti(Object.assign({}, defaults, { 
-                    particleCount, 
-                    origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
-                    colors: ['#C8102E', '#041E42', '#FFFFFF', '#FFD700']
-                }));
-                confetti(Object.assign({}, defaults, { 
-                    particleCount, 
-                    origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
-                    colors: ['#C8102E', '#041E42', '#FFFFFF', '#FFD700']
-                }));
-            }, 250);
-            
-            // Add click event to trigger more confetti when clicking on the record value
-            document.querySelector('.stat-value.record').addEventListener('click', function() {
-                confetti({
-                    particleCount: 150,
-                    spread: 70,
-                    origin: { y: 0.6 },
-                    colors: ['#C8102E', '#041E42', '#FFFFFF', '#FFD700']
-                });
-            });
-        };
+        // Add cache-busting to ensure fresh data
+        document.getElementById('refresh-btn').addEventListener('click', function() {
+            location.reload();
+        });
     </script>
 </body>
 </html>

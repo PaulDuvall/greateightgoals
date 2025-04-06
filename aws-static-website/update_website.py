@@ -13,6 +13,7 @@ import subprocess
 import json
 from datetime import datetime
 import sys
+import shutil
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -152,8 +153,10 @@ def generate_html_content(stats):
     # Calculate progress percentage
     try:
         progress_pct = round((int(total_goals) / 894) * 100, 1)
+        progress_pct_str = str(progress_pct)
     except (ValueError, ZeroDivisionError):
         progress_pct = 0
+        progress_pct_str = "0"
     
     # Current time in ET for the footer
     current_time = datetime.now(pytz.timezone('America/New_York')).strftime('%Y-%m-%d %I:%M:%S %p ET')
@@ -183,7 +186,7 @@ def generate_html_content(stats):
     <link rel="alternate icon" href="favicon.ico" type="image/x-icon">
     
     <!-- Google Fonts for clean typography -->
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -198,6 +201,7 @@ def generate_html_content(stats):
             --caps-light-gray: #F5F5F5; /* Light background */
             --caps-dark-gray: #333333;  /* Text color */
             --caps-silver: #A2AAAD;     /* Silver accent */
+            --caps-gold: #FFD700;       /* Celebration gold */
             
             /* Spacing variables */
             --spacing-xs: 0.25rem;
@@ -213,6 +217,7 @@ def generate_html_content(stats):
             --font-xl: 1.5rem;
             --font-xxl: 2rem;
             --font-huge: 3rem;
+            --font-massive: 4.5rem;
         }}
         
         /* Base styles and CSS Reset */
@@ -225,14 +230,15 @@ def generate_html_content(stats):
         body {{
             font-family: 'Roboto', sans-serif;
             line-height: 1.6;
-            background-color: var(--caps-light-gray);
-            color: var(--caps-dark-gray);
+            background-color: var(--caps-red);
+            color: var(--caps-white);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            background-image: linear-gradient(to bottom, #f9f9f9, #e9e9e9);
+            background-image: linear-gradient(135deg, var(--caps-red) 0%, #a00a24 100%);
             position: relative;
+            overflow-x: hidden;
         }}
         
         body::before {{
@@ -243,10 +249,10 @@ def generate_html_content(stats):
             width: 100%;
             height: 100%;
             background-image: url('https://upload.wikimedia.org/wikipedia/commons/f/f3/Alex_Ovechkin_2018-05-21.jpg');
-            background-size: 80% auto;
+            background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            opacity: 0.15;
+            opacity: 0.25;
             pointer-events: none;
             z-index: -1;
             filter: contrast(1.2) saturate(1.2);
@@ -256,23 +262,24 @@ def generate_html_content(stats):
         .hero {{
             background-color: var(--caps-blue);
             color: var(--caps-white);
-            padding: var(--spacing-md) var(--spacing-lg);
+            padding: var(--spacing-lg) var(--spacing-xl);
             border-radius: 12px;
-            margin-bottom: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
             text-align: center;
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
             width: 100%;
             max-width: 1200px;
             background-image: linear-gradient(135deg, var(--caps-blue) 0%, #0a2e5c 100%);
             position: relative;
             overflow: hidden;
-            margin-top: var(--spacing-lg);
-            transform: translateY(0);
-            transition: transform 0.3s ease;
+            margin-top: var(--spacing-xl);
+            border: 5px solid var(--caps-gold);
+            animation: pulse 2s infinite alternate;
         }}
         
-        .hero:hover {{
-            transform: translateY(-5px);
+        @keyframes pulse {{
+            0% {{ box-shadow: 0 0 20px var(--caps-gold); }}
+            100% {{ box-shadow: 0 0 40px var(--caps-gold); }}
         }}
         
         .hero::before {{
@@ -283,18 +290,27 @@ def generate_html_content(stats):
             width: 100%;
             height: 100%;
             background-image: url('https://www.transparenttextures.com/patterns/hockey.png');
-            opacity: 0.1;
+            opacity: 0.15;
         }}
         
         .hero h1 {{
-            font-size: var(--font-xxl);
-            margin-bottom: var(--spacing-sm);
+            font-size: var(--font-massive);
+            margin-bottom: var(--spacing-md);
             font-family: 'Montserrat', sans-serif;
             text-transform: uppercase;
-            letter-spacing: 2px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            letter-spacing: 3px;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.4);
             position: relative;
             display: inline-block;
+            font-weight: 900;
+            color: var(--caps-gold);
+            -webkit-text-stroke: 2px var(--caps-blue);
+            animation: glow 2s infinite alternate;
+        }}
+        
+        @keyframes glow {{
+            0% {{ text-shadow: 0 0 10px var(--caps-gold), 0 0 20px var(--caps-gold); }}
+            100% {{ text-shadow: 0 0 20px var(--caps-gold), 0 0 30px var(--caps-gold); }}
         }}
         
         .hero h1::after {{
@@ -303,35 +319,108 @@ def generate_html_content(stats):
             bottom: -10px;
             left: 50%;
             transform: translateX(-50%);
-            width: 80px;
-            height: 3px;
+            width: 100px;
+            height: 4px;
             background-color: var(--caps-red);
             border-radius: 3px;
         }}
         
         .hero p {{
-            font-size: var(--font-large);
-            opacity: 0.9;
+            font-size: var(--font-xl);
+            opacity: 0.95;
             max-width: 800px;
             margin: var(--spacing-md) auto 0;
+            font-weight: 700;
+            color: var(--caps-white);
         }}
         
         .projection-banner {{
             background-color: var(--caps-red);
             color: var(--caps-white);
-            padding: var(--spacing-sm) var(--spacing-md);
-            margin-top: var(--spacing-md);
+            padding: var(--spacing-md) var(--spacing-lg);
+            margin-top: var(--spacing-lg);
             border-radius: 8px;
             font-weight: bold;
             display: inline-block;
-            font-size: var(--font-large);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            font-size: var(--font-xl);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
             position: relative;
             z-index: 1;
+            border: 3px solid var(--caps-gold);
+            animation: float 3s ease-in-out infinite;
+        }}
+        
+        @keyframes float {{
+            0% {{ transform: translateY(0px); }}
+            50% {{ transform: translateY(-10px); }}
+            100% {{ transform: translateY(0px); }}
         }}
         
         .projection-banner i {{
             margin-right: var(--spacing-xs);
+            color: var(--caps-gold);
+        }}
+        
+        /* Top stats and video layout */
+        .top-content {{
+            display: grid;
+            grid-template-columns: 1fr 1fr 2fr;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-lg);
+            width: 100%;
+            align-items: stretch;
+        }}
+        
+        .top-content .stat-card {{
+            margin: 0;
+            min-height: 280px;
+        }}
+        
+        .top-content .video-section {{
+            margin: 0;
+            grid-column: 3;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--caps-white);
+            border-radius: 12px;
+            padding: var(--spacing-md);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+            border: 4px solid var(--caps-gold);
+            min-height: 280px;
+        }}
+        
+        .top-content .video-section h3 {{
+            margin-top: 0;
+            margin-bottom: var(--spacing-sm);
+            color: var(--caps-blue);
+            font-size: var(--font-xl);
+            font-weight: 700;
+            position: relative;
+            display: inline-block;
+        }}
+        
+        .top-content .video-section h3::after {{
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            width: 50px;
+            height: 3px;
+            background-color: var(--caps-red);
+            border-radius: 3px;
+        }}
+        
+        .top-content .video-container {{
+            flex: 1;
+            margin-bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
+        
+        .top-content .stats-container {{
+            display: contents;
         }}
         
         /* Main content wrapper - centers content and uses grid layout */
@@ -345,125 +434,39 @@ def generate_html_content(stats):
             padding: 0 var(--spacing-md);
         }}
         
-        /* Stats cards - more compact and in a grid */
+        /* Stats cards styling */
         .stats-container {{
-            display: grid;
-            grid-template-columns: 1fr;
+            display: flex;
+            justify-content: space-between;
             gap: var(--spacing-md);
-            width: 100%;
+            margin-bottom: var(--spacing-lg);
         }}
         
         .stat-card {{
             background-color: var(--caps-white);
             border-radius: 12px;
             padding: var(--spacing-md);
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            border-left: 5px solid var(--caps-red);
-            position: relative;
-            overflow: hidden;
+            text-align: center;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+            flex: 1;
+            border: 4px solid var(--caps-gold);
             display: flex;
             flex-direction: column;
             justify-content: center;
-            align-items: center;
-            text-align: center;
-            min-height: 200px;
-        }}
-        
-        .stat-card::after {{
-            content: '';
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 40%;
-            height: 40%;
-            background-image: linear-gradient(135deg, transparent 50%, rgba(200, 16, 46, 0.05) 50%);
-            border-radius: 0 0 12px 0;
-        }}
-        
-        .stat-card:hover {{
-            transform: translateY(-5px);
-            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+            min-height: 280px; /* Fixed height to match video */
         }}
         
         .stat-card h3 {{
-            color: var(--caps-blue);
-            margin-bottom: var(--spacing-sm);
-            font-size: var(--font-large);
-            font-family: 'Montserrat', sans-serif;
-            display: inline-block;
-            position: relative;
-        }}
-        
-        .stat-card h3::after {{
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background-color: var(--caps-red);
-            border-radius: 2px;
-        }}
-        
-        .stat-value {{
-            font-size: var(--font-huge);
-            font-weight: bold;
-            color: var(--caps-red);
-            margin: var(--spacing-sm) 0;
-            display: block;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
-            font-family: 'Montserrat', sans-serif;
-            position: relative;
-        }}
-        
-        .stat-value::before {{
-            content: '';
-            position: absolute;
-            width: 30px;
-            height: 30px;
-            background-color: rgba(200, 16, 46, 0.1);
-            border-radius: 50%;
-            z-index: -1;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%) scale(3);
-        }}
-        
-        /* Progress bar - full width and more visible */
-        .progress-section {{
-            background-color: var(--caps-white);
-            border-radius: 12px;
-            padding: var(--spacing-lg);
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
-            width: 100%;
-            grid-column: 1 / -1; /* Spans full width in the grid */
-            border-top: 5px solid var(--caps-blue);
-            position: relative;
-            overflow: hidden;
-        }}
-        
-        .progress-section::before {{
-            content: '';
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 150px;
-            height: 150px;
-            background-image: radial-gradient(circle, rgba(4, 30, 66, 0.05) 0%, transparent 70%);
-            border-radius: 50%;
-        }}
-        
-        .progress-section h3 {{
             color: var(--caps-blue);
             margin-bottom: var(--spacing-md);
             font-size: var(--font-xl);
             font-family: 'Montserrat', sans-serif;
             position: relative;
             display: inline-block;
+            font-weight: 700;
         }}
         
-        .progress-section h3::after {{
+        .stat-card h3::after {{
             content: '';
             position: absolute;
             bottom: -8px;
@@ -474,82 +477,233 @@ def generate_html_content(stats):
             border-radius: 3px;
         }}
         
-        .progress-bar {{
-            background-color: #e0e0e0;
-            height: 30px;
-            border-radius: 15px;
+        .stat-value {{
+            font-size: var(--font-huge);
+            font-weight: bold;
+            color: var(--caps-red);
             margin: var(--spacing-md) 0;
-            overflow: hidden;
-            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: block;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+            font-family: 'Montserrat', sans-serif;
             position: relative;
         }}
         
-        .progress-fill {{
-            background-color: var(--caps-red);
-            width: {progress_pct}%;
-            height: 100%;
-            border-radius: 15px;
-            transition: width 1.5s ease-in-out;
-            position: relative;
-            background-image: linear-gradient(45deg, 
-                            rgba(255, 255, 255, 0.15) 25%, 
-                            transparent 25%, 
-                            transparent 50%, 
-                            rgba(255, 255, 255, 0.15) 50%, 
-                            rgba(255, 255, 255, 0.15) 75%, 
-                            transparent 75%, 
-                            transparent);
-            background-size: 40px 40px;
-            animation: progress-animation 2s linear infinite;
+        .stat-value.record {{
+            color: var(--caps-gold);
+            font-size: calc(var(--font-huge) * 1.2);
+            text-shadow: 2px 2px 4px rgba(200, 16, 46, 0.3);
         }}
         
-        .progress-fill::after {{
-            content: '{progress_pct}%';
+        .stat-value::before {{
+            content: '';
             position: absolute;
-            right: 10px;
+            width: 40px;
+            height: 40px;
+            background-color: rgba(200, 16, 46, 0.1);
+            border-radius: 50%;
+            z-index: -1;
+            left: 50%;
             top: 50%;
-            transform: translateY(-50%);
-            color: white;
-            font-weight: bold;
-            font-size: var(--font-medium);
-            text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.3);
+            transform: translate(-50%, -50%) scale(3.5);
         }}
         
-        @keyframes progress-animation {{
-            0% {{ background-position: 0 0; }}
-            100% {{ background-position: 40px 0; }}
+        .stat-value.record::before {{
+            background-color: rgba(255, 215, 0, 0.15);
         }}
         
-        .progress-text {{
-            display: flex;
-            justify-content: space-between;
-            font-size: var(--font-medium);
-            color: var(--caps-dark-gray);
-            margin-top: var(--spacing-sm);
-            font-weight: 500;
+        /* Records section - showcases Ovechkin's NHL records */
+        .records-section {{
+            background-color: var(--caps-white);
+            border-radius: 12px;
+            padding: var(--spacing-lg);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+            width: 100%;
+            grid-column: 1 / -1; /* Spans full width in the grid */
+            border: 4px solid var(--caps-gold);
+            position: relative;
+            overflow: hidden;
+            animation: pulse 2s infinite alternate;
         }}
         
-        .progress-text span:first-child {{
-            font-weight: bold;
+        .records-section::before {{
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 150px;
+            height: 150px;
+            background-image: radial-gradient(circle, rgba(4, 30, 66, 0.05) 0%, transparent 70%);
+            border-radius: 50%;
         }}
         
-        .progress-text span:last-child {{
+        .records-section h3 {{
             color: var(--caps-blue);
+            margin-bottom: var(--spacing-md);
+            font-size: var(--font-xl);
+            font-family: 'Montserrat', sans-serif;
+            position: relative;
+            display: inline-block;
+            font-weight: 700;
+        }}
+        
+        .records-section h3::after {{
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            width: 50px;
+            height: 3px;
+            background-color: var(--caps-red);
+            border-radius: 3px;
+        }}
+        
+        .records-container {{
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-md);
+        }}
+        
+        .record-item {{
+            background-color: var(--caps-light-gray);
+            padding: var(--spacing-md);
+            border-radius: 8px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border-left: 4px solid var(--caps-red);
+        }}
+        
+        .record-item:hover {{
+            transform: translateY(-5px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+        }}
+        
+        .record-icon {{
+            font-size: var(--font-huge);
+            margin-right: var(--spacing-md);
+            color: var(--caps-gold);
+            background-color: var(--caps-blue);
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }}
+        
+        .record-details {{
+            font-size: var(--font-medium);
+        }}
+        
+        .record-details h4 {{
             font-weight: bold;
+            margin-bottom: var(--spacing-xs);
+            color: var(--caps-blue);
+            font-size: var(--font-large);
+        }}
+        
+        .record-details p {{
+            color: var(--caps-dark-gray);
+            font-size: var(--font-medium);
+        }}
+        
+        /* Video section styling */
+        .video-section {{
+            background-color: var(--caps-white);
+            border-radius: 12px;
+            padding: var(--spacing-lg);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+            width: 100%;
+            grid-column: 1 / -1; /* Spans full width in the grid */
+            border: 4px solid var(--caps-gold);
+            position: relative;
+            overflow: hidden;
+            margin-top: var(--spacing-lg);
+            margin-bottom: var(--spacing-lg);
+        }}
+        
+        .video-section h3 {{
+            color: var(--caps-blue);
+            margin-bottom: var(--spacing-md);
+            font-size: var(--font-xl);
+            font-family: 'Montserrat', sans-serif;
+            position: relative;
+            display: inline-block;
+            font-weight: 700;
+        }}
+        
+        .video-section h3::after {{
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            width: 50px;
+            height: 3px;
+            background-color: var(--caps-red);
+            border-radius: 3px;
+        }}
+        
+        .video-container {{
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            height: 0;
+            overflow: hidden;
+            max-width: 800px;
+            margin: 0 auto;
+        }}
+        
+        .video-container iframe {{
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            border: none;
         }}
         
         /* Responsive design adjustments */
         @media (max-width: 768px) {{
-            .content-wrapper {{
-                grid-template-columns: 1fr;
+            .stats-container {{
+                flex-direction: column;
+                gap: var(--spacing-md);
+            }}
+            
+            .stat-card {{
+                width: 100%;
+                min-height: 220px;
             }}
             
             .hero h1 {{
-                font-size: var(--font-xl);
+                font-size: var(--font-xxl);
             }}
             
             .hero p {{
-                font-size: var(--font-medium);
+                font-size: var(--font-large);
+            }}
+            
+            .records-grid {{
+                grid-template-columns: 1fr;
+            }}
+            
+            .video-container {{
+                padding-bottom: 75%; /* Adjusted aspect ratio for mobile */
+            }}
+            
+            .top-content {{
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+            }}
+            
+            .top-content .video-section {{
+                grid-column: 1;
+                margin-top: var(--spacing-md);
+                min-height: 220px;
             }}
         }}
         
@@ -559,14 +713,14 @@ def generate_html_content(stats):
             to {{ opacity: 1; transform: translateY(0); }}
         }}
         
-        .hero, .stat-card, .progress-section {{
+        .hero, .stat-card, .records-section {{
             animation: fadeIn 0.8s ease-out forwards;
         }}
         
         .hero {{ animation-delay: 0s; }}
         .stat-card:nth-child(1) {{ animation-delay: 0.1s; }}
         .stat-card:nth-child(2) {{ animation-delay: 0.2s; }}
-        .progress-section {{ animation-delay: 0.3s; }}
+        .records-section {{ animation-delay: 0.3s; }}
         
         /* Footer with update time */
         footer {{
@@ -598,10 +752,12 @@ def generate_html_content(stats):
         .hero-link {{
             color: var(--caps-white);
             text-decoration: none;
+            transition: all 0.3s ease;
         }}
         
         .hero-link:hover {{
             text-decoration: underline;
+            color: var(--caps-silver);
         }}
         
         /* Accessibility styles */
@@ -620,11 +776,13 @@ def generate_html_content(stats):
             color: var(--caps-white);
             text-decoration: underline;
             opacity: 0.9;
+            transition: all 0.3s ease;
         }}
         
         .footer-link:hover {{
             opacity: 1;
             text-decoration: none;
+            color: var(--caps-silver);
         }}
         
         .attribution {{
@@ -637,6 +795,23 @@ def generate_html_content(stats):
             margin-top: var(--spacing-sm);
             font-size: 0.8rem;
             opacity: 0.8;
+        }}
+        
+        /* Refresh button styling */
+        .refresh-button {{
+            background-color: var(--caps-blue);
+            color: var(--caps-white);
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            margin-left: 10px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background-color 0.3s ease;
+        }}
+        
+        .refresh-button:hover {{
+            background-color: var(--caps-red);
         }}
     </style>
 </head>
@@ -669,7 +844,7 @@ def generate_html_content(stats):
         <nav aria-label="Main Navigation" class="visually-hidden">
             <ul>
                 <li><a href="#stats">Current Stats</a></li>
-                <li><a href="#progress">Progress to Record</a></li>
+                <li><a href="#records">Ovechkin's NHL Records</a></li>
             </ul>
         </nav>
     </header>
@@ -677,47 +852,84 @@ def generate_html_content(stats):
     <main>
         <div class="hero">
             <h1>The GR8 Chase</h1>
-            <p>Tracking <a href="https://www.nhl.com/capitals/player/alex-ovechkin-8471214" target="_blank" class="hero-link">Alex Ovechkin's</a> pursuit of Wayne Gretzky's all-time NHL goal record of 894 goals</p>
+            <p><a href="https://www.nhl.com/capitals/player/alex-ovechkin-8471214" target="_blank" class="hero-link">Alex Ovechkin</a> has officially surpassed Wayne Gretzky to become the NHL's all-time leading goal scorer!</p>
             <div class="projection-banner">
                 <i class="fas fa-calendar-alt"></i> {formatted_projection}
             </div>
         </div>
         
-        <div class="content-wrapper">
+        <div class="top-content">
             <div class="stats-container">
                 <div class="stat-card" id="stats" aria-labelledby="current-goals">
-                    <h3 id="current-goals">Current Goals</h3>
-                    <span class="stat-value" aria-live="polite">{total_goals}</span>
-                    <p>Ovechkin's career NHL goals</p>
+                    <h3 id="current-goals">Ovechkin's Goals</h3>
+                    <span class="stat-value record" aria-live="polite">{total_goals}</span>
+                    <p>Current NHL career goals</p>
                 </div>
-            </div>
-            
-            <div class="stats-container">
+                
                 <div class="stat-card" aria-labelledby="goals-needed">
-                    <h3 id="goals-needed">Goals Needed</h3>
+                    <h3 id="goals-needed">Goals to Break Record</h3>
                     <span class="stat-value" aria-live="polite">{goals_needed}</span>
-                    <p>Goals remaining to break Gretzky's record</p>
+                    <p>Goals needed to surpass Gretzky</p>
                 </div>
             </div>
             
-            <div class="progress-section" id="progress" aria-labelledby="progress-heading">
-                <h3 id="progress-heading">Progress to Record</h3>
-                <div class="progress-bar" role="progressbar" aria-valuenow="{progress_pct}" aria-valuemin="0" aria-valuemax="100">
-                    <div class="progress-fill"></div>
+            <div class="video-section">
+                <h3>Ovechkin's Record-Breaking Goal</h3>
+                <div class="video-container">
+                    <iframe src="https://www.youtube.com/embed/pPazSfir7-k" title="Alex Ovechkin Record-Breaking Goal" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
                 </div>
-                <div class="progress-text">
-                    <span>Current: {total_goals}</span>
-                    <span>Goal: 894</span>
+            </div>
+        </div>
+        
+        <div class="content-wrapper">
+            <div class="records-section" id="records" aria-labelledby="records-heading">
+                <h3 id="records-heading">Ovechkin's NHL Records</h3>
+                <div class="records-container">
+                    <div class="record-item">
+                        <div class="record-icon"><i class="fas fa-trophy"></i></div>
+                        <div class="record-details">
+                            <h4>Most Power Play Goals</h4>
+                            <p>All-time NHL leader with 300+ power play goals</p>
+                        </div>
+                    </div>
+                    <div class="record-item">
+                        <div class="record-icon"><i class="fas fa-fire"></i></div>
+                        <div class="record-details">
+                            <h4>Most Goals with One Franchise</h4>
+                            <p>All goals scored with the Washington Capitals</p>
+                        </div>
+                    </div>
+                    <div class="record-item">
+                        <div class="record-icon"><i class="fas fa-bolt"></i></div>
+                        <div class="record-details">
+                            <h4>Most Seasons with 50+ Goals</h4>
+                            <p>Nine seasons with 50 or more goals</p>
+                        </div>
+                    </div>
+                    <div class="record-item">
+                        <div class="record-icon"><i class="fas fa-crown"></i></div>
+                        <div class="record-details">
+                            <h4>Most Goals by a Left Winger</h4>
+                            <p>Surpassed Luc Robitaille's previous record</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </main>
     
     <footer>
-        <p>Last updated: <span class="update-time">{current_time}</span></p>
+        <p>Last updated: <span class="update-time">{current_time}</span> <button id="refresh-btn" class="refresh-button"><i class="fas fa-sync-alt"></i> Refresh</button></p>
         <p class="built-by">Built by <a href="http://github.com/PaulDuvall/" class="footer-link" target="_blank" rel="noopener">Paul Duvall</a></p>
         <p class="attribution">Background image: <a href="https://commons.wikimedia.org/wiki/File:Alex_Ovechkin_2018-05-21.jpg" class="footer-link">Alex Ovechkin</a> by Michael Miller, <a href="https://creativecommons.org/licenses/by-sa/4.0/" class="footer-link">CC BY-SA 4.0</a></p>
     </footer>
+    
+    <script>
+        // Add cache-busting to ensure fresh data
+        document.getElementById('refresh-btn').addEventListener('click', function() {{
+            location.reload();
+        }});
+    </script>
 </body>
 </html>
 """
