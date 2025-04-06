@@ -19,6 +19,11 @@ on:
         required: false
         default: 'us-east-1'
         type: string
+      celebrate:
+        description: 'Activate celebration mode for Ovechkin breaking Gretzkys record'
+        required: false
+        default: false
+        type: boolean
       schedule:
         description: |
           Schedule expression for updates. Examples:
@@ -153,6 +158,9 @@ jobs:
 
           # Copy the update_website.py script
           cp aws-static-website/update_website.py "$TMP_DIR/"
+          
+          # Copy the celebrate.py script for celebration mode
+          cp aws-static-website/celebrate.py "$TMP_DIR/"
 
           # Create a directory structure for the static content
           mkdir -p "$TMP_DIR/static"
@@ -225,3 +233,26 @@ jobs:
             --query "{Name:Name, ScheduleExpression:ScheduleExpression, State:State}" \
             --output table \
             --region ${{ inputs.region || 'us-east-1' }}
+
+      - name: Test Lambda function with celebration mode
+        if: ${{ inputs.celebrate == 'true' }}
+        run: |
+          echo "Testing Lambda function with celebration mode..."
+          response=$(aws lambda invoke \
+            --function-name "${{ steps.set_stack_name.outputs.stack_name }}" \
+            --payload '{"source": "aws.events", "celebrate": true}' \
+            --cli-binary-format raw-in-base64-out \
+            --region ${{ inputs.region || 'us-east-1' }} \
+            /tmp/lambda-response.json)
+          
+          echo "Lambda response status: $response"
+          echo "Lambda response payload:"
+          cat /tmp/lambda-response.json
+          
+          # Check if the response contains the celebration mode confirmation
+          if grep -q "Celebration mode activated" /tmp/lambda-response.json; then
+            echo "✅ Celebration mode activated successfully!"
+          else
+            echo "❌ Celebration mode activation failed!"
+            exit 1
+          fi

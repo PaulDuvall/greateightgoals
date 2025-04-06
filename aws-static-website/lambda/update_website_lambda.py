@@ -41,6 +41,12 @@ def lambda_handler(event, context):
     """
     try:
         logger.info("Starting website update process")
+        logger.info(f"Event data: {event}")
+        
+        # Check if celebration mode is requested
+        celebrate = event.get('celebrate', False)
+        if celebrate:
+            logger.info("Celebration mode activated for Ovechkin breaking Gretzky's record!")
         
         # Get environment variables
         stack_name = 'static-website'  # Use the fixed stack name to match existing infrastructure
@@ -86,41 +92,72 @@ def lambda_handler(event, context):
         # List directories to debug
         logger.info(f"Contents of task_dir: {os.listdir(task_dir)}")
         
-        # Import the update_website function directly
-        try:
-            # Try to import the update_website module
-            update_website_path = os.path.join(task_dir, "update_website.py")
-            logger.info(f"Importing update_website from: {update_website_path}")
-            
-            if not os.path.exists(update_website_path):
-                raise FileNotFoundError(f"update_website.py not found at {update_website_path}")
+        # Import the appropriate module based on celebration mode
+        if celebrate:
+            try:
+                # Try to import the celebrate module
+                celebrate_path = os.path.join(task_dir, "celebrate.py")
+                logger.info(f"Importing celebrate from: {celebrate_path}")
                 
-            # Check if assets directory exists and log its location
-            assets_dir = os.path.join(task_dir, "assets")
-            if os.path.exists(assets_dir):
-                logger.info(f"Assets directory found at: {assets_dir}")
-                logger.info(f"Assets directory contents: {os.listdir(assets_dir)}")
-            else:
-                logger.warning(f"Assets directory not found at: {assets_dir}")
+                if not os.path.exists(celebrate_path):
+                    raise FileNotFoundError(f"celebrate.py not found at {celebrate_path}")
+                    
+                # Check if assets directory exists and log its location
+                assets_dir = os.path.join(task_dir, "assets")
+                if os.path.exists(assets_dir):
+                    logger.info(f"Assets directory found at: {assets_dir}")
+                    logger.info(f"Assets directory contents: {os.listdir(assets_dir)}")
+                else:
+                    logger.warning(f"Assets directory not found at: {assets_dir}")
+                    
+                spec = importlib.util.spec_from_file_location(
+                    "celebrate", 
+                    celebrate_path
+                )
+                celebrate_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(celebrate_module)
                 
-            spec = importlib.util.spec_from_file_location(
-                "update_website", 
-                update_website_path
-            )
-            update_website_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(update_website_module)
-            
-            # Call the update_website function
-            logger.info("Running update_website function")
-            result = update_website_module.update_website()
-            
-            if not result:
-                raise Exception("update_website function returned False")
+                # Call the update_website function from the celebrate module
+                logger.info("Executing celebration update_website function")
+                celebrate_module.update_website()
+                logger.info("Celebration website updated successfully")
                 
-            logger.info("Website content updated successfully")
-        except Exception as e:
-            logger.error(f"Error running update_website module: {str(e)}")
-            raise
+            except Exception as e:
+                logger.error(f"Error importing or executing celebrate.py: {str(e)}")
+                raise
+        else:
+            # Import the update_website function directly
+            try:
+                # Try to import the update_website module
+                update_website_path = os.path.join(task_dir, "update_website.py")
+                logger.info(f"Importing update_website from: {update_website_path}")
+                
+                if not os.path.exists(update_website_path):
+                    raise FileNotFoundError(f"update_website.py not found at {update_website_path}")
+                    
+                # Check if assets directory exists and log its location
+                assets_dir = os.path.join(task_dir, "assets")
+                if os.path.exists(assets_dir):
+                    logger.info(f"Assets directory found at: {assets_dir}")
+                    logger.info(f"Assets directory contents: {os.listdir(assets_dir)}")
+                else:
+                    logger.warning(f"Assets directory not found at: {assets_dir}")
+                    
+                spec = importlib.util.spec_from_file_location(
+                    "update_website", 
+                    update_website_path
+                )
+                update_website_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(update_website_module)
+                
+                # Call the update_website function
+                logger.info("Executing update_website function")
+                update_website_module.update_website()
+                logger.info("Website updated successfully")
+                
+            except Exception as e:
+                logger.error(f"Error importing or executing update_website.py: {str(e)}")
+                raise
         
         # Get the updated static files
         # In Lambda, the files will be in /tmp/static instead of task_dir/static
@@ -187,8 +224,9 @@ def lambda_handler(event, context):
         return {
             'statusCode': 200,
             'body': json.dumps({
-                'message': 'Website updated successfully',
-                'bucket': bucket_name
+                'message': 'Celebration mode activated' if celebrate else 'Website updated successfully',
+                'bucket': bucket_name,
+                'celebrationMode': celebrate
             })
         }
         

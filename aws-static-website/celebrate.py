@@ -1,4 +1,51 @@
-<!DOCTYPE html>
+#!/usr/bin/env python3
+"""
+Celebration Script for Ovechkin Goal Tracker
+
+This script creates a celebratory version of the website to commemorate
+Alex Ovechkin breaking Wayne Gretzky's NHL goal record.
+"""
+
+import os
+import logging
+import json
+from datetime import datetime
+import sys
+import shutil
+
+# Try to import pytz, but provide a fallback if not available
+try:
+    import pytz
+    has_pytz = True
+except ImportError:
+    has_pytz = False
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+
+def generate_celebration_html_content():
+    """
+    Generate celebratory HTML content for Alex Ovechkin breaking Wayne Gretzky's goal record
+    
+    Returns:
+        str: HTML content for the celebration website
+    """
+    # Current time in ET for the footer
+    if has_pytz:
+        current_time = datetime.now(pytz.timezone('America/New_York')).strftime('%Y-%m-%d %I:%M:%S %p ET')
+    else:
+        current_time = datetime.now().strftime('%Y-%m-%d %I:%M:%S %p')
+    
+    # Today's date for the record-breaking announcement
+    if has_pytz:
+        today = datetime.now(pytz.timezone('America/New_York')).strftime('%A, %B %d, %Y')
+    else:
+        today = datetime.now().strftime('%A, %B %d, %Y')
+    
+    # Create HTML content with Washington Capitals colors and celebratory design
+    html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <!-- Meta tags for proper responsive behavior and character encoding -->
@@ -32,7 +79,7 @@
     
     <style>
         /* CSS Variables for consistent theming and easy updates */
-        :root {
+        :root {{
             /* Washington Capitals colors */
             --caps-red: #C8102E;       /* Primary red */
             --caps-blue: #041E42;      /* Navy blue */
@@ -57,16 +104,16 @@
             --font-xxl: 2rem;
             --font-huge: 3rem;
             --font-massive: 4.5rem;
-        }
+        }}
         
         /* Base styles and CSS Reset */
-        * {
+        * {{
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-        }
+        }}
         
-        body {
+        body {{
             font-family: 'Roboto', sans-serif;
             line-height: 1.6;
             background-color: var(--caps-red);
@@ -78,9 +125,9 @@
             background-image: linear-gradient(135deg, var(--caps-red) 0%, #a00a24 100%);
             position: relative;
             overflow-x: hidden;
-        }
+        }}
         
-        body::before {
+        body::before {{
             content: '';
             position: absolute;
             top: 0;
@@ -95,10 +142,10 @@
             pointer-events: none;
             z-index: -1;
             filter: contrast(1.2) saturate(1.2);
-        }
+        }}
         
         /* Hero section with celebration announcement */
-        .hero {
+        .hero {{
             background-color: var(--caps-blue);
             color: var(--caps-white);
             padding: var(--spacing-lg) var(--spacing-xl);
@@ -114,14 +161,14 @@
             margin-top: var(--spacing-xl);
             border: 5px solid var(--caps-gold);
             animation: pulse 2s infinite alternate;
-        }
+        }}
         
-        @keyframes pulse {
-            0% { box-shadow: 0 0 20px var(--caps-gold); }
-            100% { box-shadow: 0 0 40px var(--caps-gold); }
-        }
+        @keyframes pulse {{
+            0% {{ box-shadow: 0 0 20px var(--caps-gold); }}
+            100% {{ box-shadow: 0 0 40px var(--caps-gold); }}
+        }}
         
-        .hero::before {
+        .hero::before {{
             content: '';
             position: absolute;
             top: 0;
@@ -130,9 +177,9 @@
             height: 100%;
             background-image: url('https://www.transparenttextures.com/patterns/hockey.png');
             opacity: 0.15;
-        }
+        }}
         
-        .hero h1 {
+        .hero h1 {{
             font-size: var(--font-massive);
             margin-bottom: var(--spacing-md);
             font-family: 'Montserrat', sans-serif;
@@ -145,14 +192,14 @@
             color: var(--caps-gold);
             -webkit-text-stroke: 2px var(--caps-blue);
             animation: glow 2s infinite alternate;
-        }
+        }}
         
-        @keyframes glow {
-            0% { text-shadow: 0 0 10px var(--caps-gold), 0 0 20px var(--caps-gold); }
-            100% { text-shadow: 0 0 20px var(--caps-gold), 0 0 30px var(--caps-gold); }
-        }
+        @keyframes glow {{
+            0% {{ text-shadow: 0 0 10px var(--caps-gold), 0 0 20px var(--caps-gold); }}
+            100% {{ text-shadow: 0 0 20px var(--caps-gold), 0 0 30px var(--caps-gold); }}
+        }}
         
-        .hero h1::after {
+        .hero h1::after {{
             content: '';
             position: absolute;
             bottom: -10px;
@@ -162,17 +209,17 @@
             height: 4px;
             background-color: var(--caps-red);
             border-radius: 3px;
-        }
+        }}
         
-        .hero p {
+        .hero p {{
             font-size: var(--font-xl);
             opacity: 0.95;
             max-width: 800px;
             margin: var(--spacing-md) auto 0;
             font-weight: 700;
-        }
+        }}
         
-        .record-banner {
+        .record-banner {{
             background-color: var(--caps-red);
             color: var(--caps-white);
             padding: var(--spacing-md) var(--spacing-lg);
@@ -186,21 +233,21 @@
             z-index: 1;
             border: 3px solid var(--caps-gold);
             animation: float 3s ease-in-out infinite;
-        }
+        }}
         
-        @keyframes float {
-            0% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-            100% { transform: translateY(0px); }
-        }
+        @keyframes float {{
+            0% {{ transform: translateY(0px); }}
+            50% {{ transform: translateY(-10px); }}
+            100% {{ transform: translateY(0px); }}
+        }}
         
-        .record-banner i {
+        .record-banner i {{
             margin-right: var(--spacing-xs);
             color: var(--caps-gold);
-        }
+        }}
         
         /* Main content wrapper */
-        .content-wrapper {
+        .content-wrapper {{
             display: grid;
             grid-template-columns: 1fr;
             gap: var(--spacing-lg);
@@ -208,17 +255,17 @@
             max-width: 1200px;
             margin-bottom: var(--spacing-lg);
             padding: 0 var(--spacing-md);
-        }
+        }}
         
         /* Stats cards - celebratory style */
-        .stats-container {
+        .stats-container {{
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: var(--spacing-lg);
             width: 100%;
-        }
+        }}
         
-        .stat-card {
+        .stat-card {{
             background-color: var(--caps-white);
             border-radius: 12px;
             padding: var(--spacing-lg);
@@ -236,14 +283,14 @@
             transform-style: preserve-3d;
             perspective: 1000px;
             animation: card-entrance 1s ease-out forwards;
-        }
+        }}
         
-        @keyframes card-entrance {
-            from { opacity: 0; transform: translateY(50px) rotateX(10deg); }
-            to { opacity: 1; transform: translateY(0) rotateX(0); }
-        }
+        @keyframes card-entrance {{
+            from {{ opacity: 0; transform: translateY(50px) rotateX(10deg); }}
+            to {{ opacity: 1; transform: translateY(0) rotateX(0); }}
+        }}
         
-        .stat-card::after {
+        .stat-card::after {{
             content: '';
             position: absolute;
             bottom: 0;
@@ -252,14 +299,14 @@
             height: 50%;
             background-image: linear-gradient(135deg, transparent 50%, rgba(200, 16, 46, 0.1) 50%);
             border-radius: 0 0 12px 0;
-        }
+        }}
         
-        .stat-card:hover {
+        .stat-card:hover {{
             transform: translateY(-10px) scale(1.03);
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-        }
+        }}
         
-        .stat-card h3 {
+        .stat-card h3 {{
             color: var(--caps-blue);
             margin-bottom: var(--spacing-md);
             font-size: var(--font-xl);
@@ -267,9 +314,9 @@
             display: inline-block;
             position: relative;
             font-weight: 700;
-        }
+        }}
         
-        .stat-card h3::after {
+        .stat-card h3::after {{
             content: '';
             position: absolute;
             bottom: -8px;
@@ -278,9 +325,9 @@
             height: 3px;
             background-color: var(--caps-red);
             border-radius: 2px;
-        }
+        }}
         
-        .stat-value {
+        .stat-value {{
             font-size: var(--font-huge);
             font-weight: bold;
             color: var(--caps-red);
@@ -289,15 +336,15 @@
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
             font-family: 'Montserrat', sans-serif;
             position: relative;
-        }
+        }}
         
-        .stat-value.record {
+        .stat-value.record {{
             color: var(--caps-gold);
             font-size: calc(var(--font-huge) * 1.2);
             text-shadow: 2px 2px 4px rgba(200, 16, 46, 0.3);
-        }
+        }}
         
-        .stat-value::before {
+        .stat-value::before {{
             content: '';
             position: absolute;
             width: 40px;
@@ -308,51 +355,51 @@
             left: 50%;
             top: 50%;
             transform: translate(-50%, -50%) scale(3.5);
-        }
+        }}
         
-        .stat-value.record::before {
+        .stat-value.record::before {{
             background-color: rgba(255, 215, 0, 0.15);
-        }
+        }}
         
         /* Responsive design adjustments */
-        @media (max-width: 768px) {
-            .stats-container {
+        @media (max-width: 768px) {{
+            .stats-container {{
                 grid-template-columns: 1fr;
-            }
+            }}
             
-            .hero h1 {
+            .hero h1 {{
                 font-size: var(--font-xxl);
-            }
+            }}
             
-            .hero p {
+            .hero p {{
                 font-size: var(--font-large);
-            }
+            }}
             
-            .stat-value {
+            .stat-value {{
                 font-size: var(--font-xxl);
-            }
+            }}
             
-            .stat-value.record {
+            .stat-value.record {{
                 font-size: calc(var(--font-xxl) * 1.2);
-            }
-        }
+            }}
+        }}
         
         /* Animation for page elements */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fadeIn {{
+            from {{ opacity: 0; transform: translateY(30px); }}
+            to {{ opacity: 1; transform: translateY(0); }}
+        }}
         
-        .hero, .stat-card {
+        .hero, .stat-card {{
             animation: fadeIn 1s ease-out forwards;
-        }
+        }}
         
-        .hero { animation-delay: 0.2s; }
-        .stat-card:nth-child(1) { animation-delay: 0.4s; }
-        .stat-card:nth-child(2) { animation-delay: 0.6s; }
+        .hero {{ animation-delay: 0.2s; }}
+        .stat-card:nth-child(1) {{ animation-delay: 0.4s; }}
+        .stat-card:nth-child(2) {{ animation-delay: 0.6s; }}
         
         /* Footer with update time */
-        footer {
+        footer {{
             background-color: var(--caps-blue);
             color: var(--caps-white);
             padding: var(--spacing-md);
@@ -362,51 +409,51 @@
             font-size: var(--font-small);
             position: relative;
             border-top: 4px solid var(--caps-gold);
-        }
+        }}
         
-        .update-time {
+        .update-time {{
             font-style: italic;
             opacity: 0.9;
-        }
+        }}
         
-        .hero-link {
+        .hero-link {{
             color: var(--caps-gold);
             text-decoration: none;
             font-weight: bold;
             transition: all 0.3s ease;
-        }
+        }}
         
-        .hero-link:hover {
+        .hero-link:hover {{
             text-decoration: underline;
             text-shadow: 0 0 10px var(--caps-gold);
-        }
+        }}
         
-        .footer-link {
+        .footer-link {{
             color: var(--caps-white);
             text-decoration: underline;
             opacity: 0.9;
-        }
+        }}
         
-        .footer-link:hover {
+        .footer-link:hover {{
             opacity: 1;
             text-decoration: none;
             color: var(--caps-gold);
-        }
+        }}
         
-        .attribution {
+        .attribution {{
             margin-top: var(--spacing-sm);
             font-size: 0.8rem;
             opacity: 0.8;
-        }
+        }}
         
-        .built-by {
+        .built-by {{
             margin-top: var(--spacing-sm);
             font-size: 0.8rem;
             opacity: 0.8;
-        }
+        }}
         
         /* Celebration elements */
-        .celebration-badge {
+        .celebration-badge {{
             position: absolute;
             top: -25px;
             right: -25px;
@@ -424,71 +471,71 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
             z-index: 10;
             animation: spin 10s linear infinite;
-        }
+        }}
         
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        @keyframes spin {{
+            0% {{ transform: rotate(0deg); }}
+            100% {{ transform: rotate(360deg); }}
+        }}
         
-        .celebration-text {
+        .celebration-text {{
             font-size: var(--font-xl);
             font-weight: 700;
             color: var(--caps-gold);
             margin-top: var(--spacing-md);
             text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
             animation: celebrate-pulse 2s infinite alternate;
-        }
+        }}
         
-        @keyframes celebrate-pulse {
-            0% { transform: scale(1); }
-            100% { transform: scale(1.05); }
-        }
+        @keyframes celebrate-pulse {{
+            0% {{ transform: scale(1); }}
+            100% {{ transform: scale(1.05); }}
+        }}
         
-        .celebration-emoji {
+        .celebration-emoji {{
             font-size: 2rem;
             margin: 0 0.3rem;
             display: inline-block;
             animation: bounce 1s infinite alternate;
-        }
+        }}
         
-        @keyframes bounce {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(-10px); }
-        }
+        @keyframes bounce {{
+            0% {{ transform: translateY(0); }}
+            100% {{ transform: translateY(-10px); }}
+        }}
         
-        .celebration-emoji:nth-child(2) {
+        .celebration-emoji:nth-child(2) {{
             animation-delay: 0.2s;
-        }
+        }}
         
-        .celebration-emoji:nth-child(3) {
+        .celebration-emoji:nth-child(3) {{
             animation-delay: 0.4s;
-        }
+        }}
     </style>
 </head>
 <body>
     <!-- Schema.org structured data for better search engine understanding -->
     <script type="application/ld+json">
-    {
+    {{
         "@context": "https://schema.org",
         "@type": "SportsEvent",
         "name": "Alex Ovechkin Breaks NHL Goal Record",
         "description": "Alex Ovechkin has broken Wayne Gretzky's all-time NHL goal record with 895 goals.",
-        "performer": {
+        "performer": {{
             "@type": "Person",
             "name": "Alex Ovechkin",
-            "affiliation": {
+            "affiliation": {{
                 "@type": "SportsTeam",
                 "name": "Washington Capitals"
-            }
-        },
-        "organizer": {
+            }}
+        }},
+        "organizer": {{
             "@type": "Organization",
             "name": "National Hockey League",
             "url": "https://www.nhl.com/"
-        },
-        "startDate": "Sunday, April 06, 2025"
-    }
+        }},
+        "startDate": "{today}"
+    }}
     </script>
     
     <header>
@@ -505,7 +552,7 @@
             <h1>RECORD BROKEN!</h1>
             <p><a href="https://www.nhl.com/capitals/player/alex-ovechkin-8471214" target="_blank" class="hero-link">Alex Ovechkin</a> has officially surpassed Wayne Gretzky to become the NHL's all-time leading goal scorer!</p>
             <div class="record-banner">
-                <i class="fas fa-trophy"></i> Record-Breaking Goal: Sunday, April 06, 2025
+                <i class="fas fa-trophy"></i> Record-Breaking Goal: {today}
             </div>
         </div>
         
@@ -532,7 +579,7 @@
     </main>
     
     <footer>
-        <p>Last updated: <span class="update-time">2025-04-06 11:02:32 AM ET</span></p>
+        <p>Last updated: <span class="update-time">{current_time}</span></p>
         <p class="built-by">Built by <a href="http://github.com/PaulDuvall/" class="footer-link" target="_blank" rel="noopener">Paul Duvall</a></p>
         <p class="attribution">Background image: <a href="https://commons.wikimedia.org/wiki/File:Alex_Ovechkin_2018-05-21.jpg" class="footer-link">Alex Ovechkin</a> by Michael Miller, <a href="https://creativecommons.org/licenses/by-sa/4.0/" class="footer-link">CC BY-SA 4.0</a></p>
     </footer>
@@ -540,47 +587,115 @@
     <!-- Confetti celebration script -->
     <script>
         // Run confetti when page loads
-        window.onload = function() {
+        window.onload = function() {{
             // Run the confetti animation
             var duration = 8 * 1000;
             var animationEnd = Date.now() + duration;
-            var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+            var defaults = {{ startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 }};
 
-            function randomInRange(min, max) {
+            function randomInRange(min, max) {{
                 return Math.random() * (max - min) + min;
-            }
+            }}
 
-            var interval = setInterval(function() {
+            var interval = setInterval(function() {{
                 var timeLeft = animationEnd - Date.now();
 
-                if (timeLeft <= 0) {
+                if (timeLeft <= 0) {{
                     return clearInterval(interval);
-                }
+                }}
 
                 var particleCount = 50 * (timeLeft / duration);
                 // Washington Capitals colors
-                confetti(Object.assign({}, defaults, { 
+                confetti(Object.assign({{}}, defaults, {{ 
                     particleCount, 
-                    origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+                    origin: {{ x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }},
                     colors: ['#C8102E', '#041E42', '#FFFFFF', '#FFD700']
-                }));
-                confetti(Object.assign({}, defaults, { 
+                }}));
+                confetti(Object.assign({{}}, defaults, {{ 
                     particleCount, 
-                    origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+                    origin: {{ x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }},
                     colors: ['#C8102E', '#041E42', '#FFFFFF', '#FFD700']
-                }));
-            }, 250);
+                }}));
+            }}, 250);
             
             // Add click event to trigger more confetti when clicking on the record value
-            document.querySelector('.stat-value.record').addEventListener('click', function() {
-                confetti({
+            document.querySelector('.stat-value.record').addEventListener('click', function() {{
+                confetti({{
                     particleCount: 150,
                     spread: 70,
-                    origin: { y: 0.6 },
+                    origin: {{ y: 0.6 }},
                     colors: ['#C8102E', '#041E42', '#FFFFFF', '#FFD700']
-                });
-            });
-        };
+                }});
+            }});
+        }};
     </script>
 </body>
 </html>
+"""
+    
+    return html
+
+
+def update_website():
+    """
+    Generate a new index.html file with the celebration content for Ovechkin breaking Gretzky's record
+    
+    Returns:
+        bool: True if website was updated successfully, False otherwise
+    """
+    try:
+        # Get the project root directory
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(script_dir)
+        
+        # Check if running in Lambda environment
+        is_lambda = 'AWS_LAMBDA_FUNCTION_NAME' in os.environ
+        
+        # Generate celebration HTML content
+        html_content = generate_celebration_html_content()
+        
+        # Define the path to the index.html file
+        # Use /tmp directory if running in Lambda environment
+        if is_lambda:
+            static_dir = os.path.join('/tmp', 'static')
+            index_path = os.path.join(static_dir, 'index.html')
+            logger.info(f"Running in Lambda environment, using temp directory: {static_dir}")
+        else:
+            static_dir = os.path.join(script_dir, 'static')
+            index_path = os.path.join(static_dir, 'index.html')
+            logger.info(f"Running in local environment, using directory: {static_dir}")
+        
+        # Create the static directory if it doesn't exist
+        os.makedirs(static_dir, exist_ok=True)
+        
+        # Create assets directory in the static directory
+        assets_dir = os.path.join(static_dir, 'assets')
+        os.makedirs(assets_dir, exist_ok=True)
+        
+        # Copy the gr8.svg file to the assets directory
+        source_svg = os.path.join(script_dir, 'assets', 'gr8.svg')
+        target_svg = os.path.join(assets_dir, 'gr8.svg')
+        
+        if os.path.exists(source_svg):
+            shutil.copy2(source_svg, target_svg)
+            logger.info(f"Copied favicon from {source_svg} to {target_svg}")
+        else:
+            logger.warning(f"Favicon source file not found at {source_svg}")
+        
+        # Write the HTML content to the file, completely replacing the existing content
+        with open(index_path, 'w') as f:
+            f.write(html_content)
+        
+        success_msg = f"Celebration website updated successfully at {index_path}"
+        logger.info(success_msg)
+        print(success_msg)
+        return True
+        
+    except Exception as e:
+        error_msg = f"ERROR: Failed to update celebration website: {str(e)}"
+        logger.error(error_msg)
+        print(error_msg)
+        return False
+
+if __name__ == "__main__":
+    update_website()

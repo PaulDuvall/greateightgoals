@@ -376,12 +376,32 @@ run_tests() {
 
 # Function to update the static website with the latest Ovechkin stats
 update_website() {
-    echo -e "${BLUE}Updating static website with latest Ovechkin stats...${NC}"
-    setup_env
-    activate_venv
+    echo -e "${BLUE}Updating website with the latest Ovechkin stats...${NC}"
     
-    # Run the update_website.py script
-    python3 aws-static-website/update_website.py
+    # Check if the celebrate flag is provided
+    if [ "$1" == "--celebrate" ]; then
+        echo -e "${BLUE}Activating celebration mode for Ovechkin breaking Gretzky's record!${NC}"
+        
+        # Get the directory where the script is located
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        
+        # Setup and activate the virtual environment
+        setup_env
+        activate_venv
+        
+        # Run the celebration script
+        python3 "$SCRIPT_DIR/aws-static-website/celebrate.py"
+    else
+        # Get the directory where the script is located
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        
+        # Setup and activate the virtual environment
+        setup_env
+        activate_venv
+        
+        # Run the update_website.py script
+        python3 "$SCRIPT_DIR/aws-static-website/update_website.py"
+    fi
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Website updated successfully!${NC}"
@@ -514,7 +534,7 @@ case $command in
         install_test_deps
         ;;
     update-website)
-        update_website
+        update_website "$@"
         ;;
     update-content)
         update_website
