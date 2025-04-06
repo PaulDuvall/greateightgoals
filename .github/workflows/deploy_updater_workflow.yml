@@ -165,6 +165,10 @@ jobs:
           # Create a directory structure for the static content
           mkdir -p "$TMP_DIR/static"
           cp -r aws-static-website/static/* "$TMP_DIR/static/" 2>/dev/null || echo "No static files found to copy"
+          
+          # Copy the assets directory for the favicon and other resources
+          mkdir -p "$TMP_DIR/assets"
+          cp -r aws-static-website/assets/* "$TMP_DIR/assets/" 2>/dev/null || echo "No asset files found to copy"
 
           # Copy the ovechkin_tracker module if it exists
           if [ -d "ovechkin_tracker" ]; then
@@ -215,6 +219,43 @@ jobs:
             --zip-file fileb://aws-static-website/build/lambda_package.zip \
             --region ${{ inputs.region || 'us-east-1' }}
 
+      - name: Test Lambda function (standard mode)
+        if: ${{ github.event.inputs.celebrate != 'true' }}
+        run: |
+          echo "Testing Lambda function in standard mode..."
+          aws lambda invoke \
+            --function-name "${{ steps.set_stack_name.outputs.stack_name }}" \
+            --payload '{"source": "aws.events"}' \
+            --cli-binary-format raw-in-base64-out \
+            --region ${{ inputs.region || 'us-east-1' }} \
+            /tmp/lambda-response.json
+          
+          echo "Lambda response payload:"
+          cat /tmp/lambda-response.json
+
+      - name: Test Lambda function with celebration mode
+        if: ${{ github.event.inputs.celebrate == 'true' }}
+        run: |
+          echo "Testing Lambda function with celebration mode..."
+          response=$(aws lambda invoke \
+            --function-name "${{ steps.set_stack_name.outputs.stack_name }}" \
+            --payload '{"source": "aws.events", "celebrate": true}' \
+            --cli-binary-format raw-in-base64-out \
+            --region ${{ inputs.region || 'us-east-1' }} \
+            /tmp/lambda-response.json)
+          
+          echo "Lambda response status: $response"
+          echo "Lambda response payload:"
+          cat /tmp/lambda-response.json
+          
+          # Check if the response contains the celebration mode confirmation
+          if grep -q "Celebration mode activated" /tmp/lambda-response.json; then
+            echo "Celebration mode activated successfully!"
+          else
+            echo "Celebration mode activation failed!"
+            exit 1
+          fi
+
       - name: Get Lambda function details
         run: |
           echo "Getting Lambda function details..."
@@ -233,26 +274,3 @@ jobs:
             --query "{Name:Name, ScheduleExpression:ScheduleExpression, State:State}" \
             --output table \
             --region ${{ inputs.region || 'us-east-1' }}
-
-      - name: Test Lambda function with celebration mode
-        if: ${{ inputs.celebrate == 'true' }}
-        run: |
-          echo "Testing Lambda function with celebration mode..."
-          response=$(aws lambda invoke \
-            --function-name "${{ steps.set_stack_name.outputs.stack_name }}" \
-            --payload '{"source": "aws.events", "celebrate": true}' \
-            --cli-binary-format raw-in-base64-out \
-            --region ${{ inputs.region || 'us-east-1' }} \
-            /tmp/lambda-response.json)
-          
-          echo "Lambda response status: $response"
-          echo "Lambda response payload:"
-          cat /tmp/lambda-response.json
-          
-          # Check if the response contains the celebration mode confirmation
-          if grep -q "Celebration mode activated" /tmp/lambda-response.json; then
-            echo "✅ Celebration mode activated successfully!"
-          else
-            echo "❌ Celebration mode activation failed!"
-            exit 1
-          fi
