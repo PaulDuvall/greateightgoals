@@ -42,7 +42,7 @@ def generate_html_content(stats):
     projected_game_dict = stats.get('nested_stats', {}).get('record', {}).get('projected_game', {})
     
     # Format the projection string exactly as requested: "Saturday, April 12, 2025, 12:30 PM ET vs Columbus Blue Jackets (Away)"
-    formatted_projection = "Projected Record-Breaking Game: "
+    formatted_projection = "Record-Breaking Game: "
     
     # Extract and format the date properly
     if projected_game_dict:
