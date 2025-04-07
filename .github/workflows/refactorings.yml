@@ -8,10 +8,23 @@ on:
 jobs:
   analyze-refactorings:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # Required for OIDC authentication
+      contents: read
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ vars.OPENAI_ROLE_TO_ASSUME }}
+        aws-region: us-east-1
+
+    - name: Get OpenAI API Key from Parameter Store
+      run: |
+        echo "OPENAI_API_KEY=$(aws ssm get-parameter --name /ovechkin-tracker/openai_api_key --with-decryption --query Parameter.Value --output text)" >> $GITHUB_ENV
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -24,8 +37,6 @@ jobs:
         pip install openai
 
     - name: Run GPT-powered Refactoring Analysis
-      env:
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       run: python .github/scripts/analyze_refactorings.py
 
     - name: Upload refactoring reports

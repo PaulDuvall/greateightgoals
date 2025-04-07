@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'GitHub Actions OIDC Integration for OpenAI API Access'
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Description: GitHub organization name
+  
+  RepositoryName:
+    Type: String
+    Description: GitHub repository name
+  
+  BranchName:
+    Type: String
+    Description: GitHub branch name to allow authentication from
+    Default: main
+
+Resources:
+  GitHubActionsOpenAIRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub 'arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com'
+            Action: 'sts:AssumeRoleWithWebIdentity'
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOrg}/${RepositoryName}:ref:refs/heads/${BranchName}
+      ManagedPolicyArns:
+        - !Ref GitHubActionsOpenAIPolicy
+      Tags:
+        - Key: Project
+          Value: !Ref RepositoryName
+        - Key: Purpose
+          Value: OpenAIAccess
+
+  GitHubActionsOpenAIPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Policy for GitHub Actions to access OpenAI API key in Parameter Store
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'ssm:GetParameter'
+            Resource: !Sub 'arn:aws:ssm:*:${AWS::AccountId}:parameter/ovechkin-tracker/openai_api_key'
+          - Effect: Allow
+            Action:
+              - 'kms:Decrypt'
+            Resource: '*'
+            Condition:
+              StringEquals:
+                'kms:ViaService': !Sub 'ssm.${AWS::Region}.amazonaws.com'
+
+Outputs:
+  OpenAIRoleARN:
+    Description: ARN of the IAM Role for GitHub Actions OpenAI access
+    Value: !GetAtt GitHubActionsOpenAIRole.Arn
