@@ -51,7 +51,7 @@ def generate_html_content(stats):
             formatted_projection += f", {game_time}"
     else:
         # Default time if not available
-        formatted_projection += ", 7:00 PM ET"
+        formatted_projection += ", 12:30 PM ET"
     
     # Add team and location
     if projected_game_dict:
