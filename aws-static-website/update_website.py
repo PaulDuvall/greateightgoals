@@ -68,10 +68,10 @@ def generate_html_content(stats):
                     formatted_projection += f" ({location})"
         else:
             # Default opponent and location if not available
-            formatted_projection += " vs New York Rangers (Home)"
+            formatted_projection += " vs New York Islanders (Home)"
     else:
         # Default opponent and location if no projected game dictionary
-        formatted_projection += " vs New York Rangers (Home)"
+        formatted_projection += " vs New York Islanders (Home)"
     
     # Calculate progress percentage
     try:
