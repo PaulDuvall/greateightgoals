@@ -159,15 +159,15 @@ echo "\nDeployment complete!"
 echo "IAM Role ARN: $ROLE_ARN"
 
 # Set GitHub repository variable
-echo "\nSetting GitHub repository variable AWS_ROLE_TO_ASSUME..."
+echo "\nSetting GitHub repository variable GHA_OIDC_ROLE_ARN..."
 
 # First try to update the variable (if it exists)
 UPDATE_RESPONSE=$(curl -s -w "%{http_code}" -o /dev/null -X PATCH \
   -H "Accept: application/vnd.github+json" \
   -H "Authorization: token $GITHUB_TOKEN" \
   -H "X-GitHub-Api-Version: 2022-11-28" \
-  "https://api.github.com/repos/$GITHUB_ORG/$REPO_NAME/actions/variables/AWS_ROLE_TO_ASSUME" \
-  -d "{\"name\":\"AWS_ROLE_TO_ASSUME\",\"value\":\"$ROLE_ARN\"}")
+  "https://api.github.com/repos/$GITHUB_ORG/$REPO_NAME/actions/variables/GHA_OIDC_ROLE_ARN" \
+  -d "{\"name\":\"GHA_OIDC_ROLE_ARN\",\"value\":\"$ROLE_ARN\"}")
 
 # If update fails (variable doesn't exist), create it
 if [[ "$UPDATE_RESPONSE" == "404" ]]; then
@@ -177,16 +177,16 @@ if [[ "$UPDATE_RESPONSE" == "404" ]]; then
     -H "Authorization: token $GITHUB_TOKEN" \
     -H "X-GitHub-Api-Version: 2022-11-28" \
     "https://api.github.com/repos/$GITHUB_ORG/$REPO_NAME/actions/variables" \
-    -d "{\"name\":\"AWS_ROLE_TO_ASSUME\",\"value\":\"$ROLE_ARN\"}")
+    -d "{\"name\":\"GHA_OIDC_ROLE_ARN\",\"value\":\"$ROLE_ARN\"}")
   
   if [[ "$CREATE_RESPONSE" == "201" ]]; then
-    echo "Successfully created GitHub variable AWS_ROLE_TO_ASSUME"
+    echo "Successfully created GitHub variable GHA_OIDC_ROLE_ARN"
   else
     echo "Failed to create GitHub variable. HTTP status: $CREATE_RESPONSE"
     echo "Please check your GitHub token has the correct permissions (repo and workflow scopes)."
   fi
 elif [[ "$UPDATE_RESPONSE" == "204" ]]; then
-  echo "Successfully updated GitHub variable AWS_ROLE_TO_ASSUME"
+  echo "Successfully updated GitHub variable GHA_OIDC_ROLE_ARN"
 else
   echo "Failed to update GitHub variable. HTTP status: $UPDATE_RESPONSE"
   echo "Please check your GitHub token has the correct permissions (repo and workflow scopes)."
@@ -204,7 +204,7 @@ echo "    steps:"
 echo "      - name: Configure AWS credentials"
 echo "        uses: aws-actions/configure-aws-credentials@v2"
 echo "        with:"
-echo "          role-to-assume: \${{ vars.AWS_ROLE_TO_ASSUME }}"
+echo "          role-to-assume: \${{ vars.GHA_OIDC_ROLE_ARN }}"
 echo "          aws-region: $REGION"
 echo ""
-echo "The AWS_ROLE_TO_ASSUME variable has been automatically set in your GitHub repository."
+echo "The GHA_OIDC_ROLE_ARN variable has been automatically set in your GitHub repository."

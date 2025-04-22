@@ -295,7 +295,7 @@ This project implements OpenID Connect (OIDC) authentication between GitHub Acti
    After running the setup script, you'll need to add the IAM Role ARN to your GitHub repository:
    - Go to your GitHub repository
    - Navigate to Settings > Secrets and variables > Variables
-   - Add a new repository variable named `AWS_ROLE_TO_ASSUME` with the value of the IAM Role ARN
+   - Add a new repository variable named `GHA_OIDC_ROLE_ARN` with the value of the IAM Role ARN
 
 3. **Use OIDC in GitHub Actions Workflows**
 
@@ -311,7 +311,7 @@ This project implements OpenID Connect (OIDC) authentication between GitHub Acti
          - name: Configure AWS credentials
            uses: aws-actions/configure-aws-credentials@v2
            with:
-             role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+             role-to-assume: ${{ vars.GHA_OIDC_ROLE_ARN }}
              aws-region: us-east-1
    ```
 

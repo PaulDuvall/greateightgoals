@@ -63,7 +63,7 @@ Automate the provisioning of AWS resources to securely serve a static "Hello Wor
 
 ```
 https://github.com/PaulDuvall/thegr8chase/settings/variables/actions
-AWS_ROLE_TO_ASSUME
+GHA_OIDC_ROLE_ARN
 ```
 
 ---
@@ -232,7 +232,7 @@ Please provide diagrams in a format that can be referenced in our markdown docum
 By placing this file in the docs/ folder, anyone can quickly reference and execute a request (for instance, via a generative AI tool or specialized diagramming system) to produce updated diagrams.
 
 
-Below is the updated, fully automated prompt that leverages GitHub repository variables. The one-step script deploys the CloudFormation stack, retrieves the IAM Role ARN, and automatically sets the GitHub repository variable (`AWS_ROLE_TO_ASSUME`) via the GitHub API.
+Below is the updated, fully automated prompt that leverages GitHub repository variables. The one-step script deploys the CloudFormation stack, retrieves the IAM Role ARN, and automatically sets the GitHub repository variable (`GHA_OIDC_ROLE_ARN`) via the GitHub API.
 
 ---
 
@@ -258,7 +258,7 @@ An all-in-one script and CloudFormation template work together to automate the e
 - **Deploy/Update the CloudFormation Stack:** Automatically create an IAM OIDC Identity Provider for GitHub Actions, an IAM Role with a trust policy scoped to your GitHub organization, repository, and branch, and a managed IAM Policy with the minimum required permissions.
 - **Wait for Deployment Completion:** Monitor the CloudFormation stack until deployment is finished.
 - **Retrieve the IAM Role ARN:** Extract the ARN from the stack outputs.
-- **Automatically Set the GitHub Repository Variable:** Use the GitHub API to set `AWS_ROLE_TO_ASSUME` in your repository’s variables.
+- **Automatically Set the GitHub Repository Variable:** Use the GitHub API to set `GHA_OIDC_ROLE_ARN` in your repository’s variables.
 
 ### Usage
 
@@ -288,7 +288,7 @@ chmod +x scripts/setup-oidc.sh
 - **Deploys/Updates the CloudFormation Stack:** Creates the necessary IAM OIDC provider, role, and policy.
 - **Waits for Completion:** Monitors the stack until the deployment is finished.
 - **Retrieves the IAM Role ARN:** Extracts and prints the role ARN.
-- **Sets the GitHub Repository Variable:** Automatically configures `AWS_ROLE_TO_ASSUME` in your GitHub repository using the provided GitHub token.
+- **Sets the GitHub Repository Variable:** Automatically configures `GHA_OIDC_ROLE_ARN` in your GitHub repository using the provided GitHub token.
 
 ---
 
@@ -309,7 +309,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          role-to-assume: ${{ vars.GHA_OIDC_ROLE_ARN }}
           aws-region: us-east-1
       
       # Additional deployment steps...
