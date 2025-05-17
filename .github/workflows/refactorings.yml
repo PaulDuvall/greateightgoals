@@ -3,7 +3,6 @@ name: Code Refactoring Analysis
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 * * 0'  # Run weekly on Sundays at midnight
 
 jobs:
   analyze-refactorings:
