@@ -7,7 +7,7 @@
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "s-maxage=300, stale-while-revalidate=60" }
+        { "key": "Cache-Control", "value": "s-maxage=240, stale-while-revalidate=30" }
       ]
     }
   ]

@@ -5,7 +5,7 @@ const TEAM = 'WSH';
 const TOTAL_GAMES = 82;
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
+  res.setHeader('Cache-Control', 's-maxage=240, stale-while-revalidate=30');
   res.setHeader('Access-Control-Allow-Origin', '*');
 
   try {
