@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Washington Capitals — 2026 Playoff Race</title>
+  <style>
+    :root {
+      --caps-red: #C8102E;
+      --caps-navy: #041E42;
+      --caps-white: #FFFFFF;
+      --caps-red-light: #e8324f;
+      --caps-navy-light: #0a2d5e;
+      --caps-navy-dark: #020f21;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-600: #4b5563;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gray-100);
+      color: var(--caps-navy);
+    }
+    header {
+      background: linear-gradient(135deg, var(--caps-navy) 0%, var(--caps-navy-dark) 100%);
+      color: var(--caps-white);
+      padding: 2.5rem 1.5rem 2rem;
+      text-align: center;
+      border-bottom: 5px solid var(--caps-red);
+    }
+    header h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+    header .subtitle {
+      color: var(--caps-red-light); font-size: 1rem; margin-top: 0.4rem;
+      font-weight: 600; letter-spacing: 2px; text-transform: uppercase;
+    }
+    .record-bar {
+      background: var(--caps-red); color: var(--caps-white);
+      display: flex; justify-content: center; gap: 2rem;
+      padding: 0.8rem 1rem; font-weight: 700; font-size: 0.95rem; flex-wrap: wrap;
+    }
+    .record-bar span { white-space: nowrap; }
+    .container { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+    .card {
+      background: var(--caps-white); border-radius: 12px; overflow: hidden;
+      box-shadow: 0 2px 12px rgba(4,30,66,0.1); margin-bottom: 1.5rem;
+    }
+    .card-header {
+      background: var(--caps-navy); color: var(--caps-white);
+      padding: 0.9rem 1.2rem; font-weight: 700; font-size: 1rem;
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .odds-body {
+      display: flex; align-items: center; justify-content: center;
+      gap: 2.5rem; padding: 2rem 1.5rem; flex-wrap: wrap;
+    }
+    .odds-ring { position: relative; width: 160px; height: 160px; }
+    .odds-ring svg { transform: rotate(-90deg); width: 160px; height: 160px; }
+    .odds-ring .bg { fill: none; stroke: var(--gray-200); stroke-width: 14; }
+    .odds-ring .fill {
+      fill: none; stroke: var(--caps-red); stroke-width: 14;
+      stroke-linecap: round; stroke-dasharray: 408; transition: stroke-dashoffset 1s ease;
+    }
+    .odds-ring .label {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center;
+    }
+    .odds-ring .pct { font-size: 2.4rem; font-weight: 800; color: var(--caps-navy); line-height: 1; }
+    .odds-ring .pct-label {
+      font-size: 0.75rem; color: var(--gray-600); text-transform: uppercase;
+      letter-spacing: 1px; margin-top: 2px;
+    }
+    .odds-detail { font-size: 0.9rem; line-height: 1.8; color: var(--caps-navy); }
+    .odds-detail strong { color: var(--caps-red); }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      background: var(--caps-navy-light); color: var(--caps-white);
+      padding: 0.65rem 1rem; text-align: left; font-size: 0.8rem;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    tbody td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--gray-200); font-size: 0.9rem; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover { background: #fef2f2; }
+    .game-num { font-weight: 800; color: var(--caps-red); text-align: center; width: 2rem; }
+    .badge {
+      display: inline-block; padding: 0.15rem 0.55rem; border-radius: 4px;
+      font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+    }
+    .badge-home { background: var(--caps-red); color: var(--caps-white); }
+    .badge-away { background: var(--caps-navy); color: var(--caps-white); }
+    .opp-pts { color: var(--gray-600); font-size: 0.8rem; }
+    .key-game { background: #fef2f2; }
+    .key-game td:first-child { border-left: 4px solid var(--caps-red); }
+    .tag-critical {
+      display: inline-block; background: var(--caps-red); color: var(--caps-white);
+      font-size: 0.65rem; font-weight: 700; padding: 0.1rem 0.4rem;
+      border-radius: 3px; margin-left: 0.4rem; text-transform: uppercase; vertical-align: middle;
+    }
+    tr.caps-row { background: #fef2f2; font-weight: 700; }
+    tr.caps-row td { border-top: 2px solid var(--caps-red); border-bottom: 2px solid var(--caps-red); }
+    tr.playoff-line td { border-bottom: 3px dashed var(--caps-red); }
+    .in-playoff { color: #16a34a; font-weight: 700; }
+    .out-playoff { color: var(--caps-red); font-weight: 700; }
+    .loading {
+      text-align: center; padding: 3rem; color: var(--gray-600); font-size: 1.1rem;
+    }
+    .loading .spinner {
+      display: inline-block; width: 28px; height: 28px;
+      border: 3px solid var(--gray-200); border-top-color: var(--caps-red);
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+      vertical-align: middle; margin-right: 0.5rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-msg {
+      text-align: center; padding: 2rem; color: var(--caps-red); font-weight: 600;
+    }
+    .analysis {
+      padding: 1.2rem 1.5rem; font-size: 0.9rem; line-height: 1.7;
+    }
+    .analysis-callout {
+      margin-top: 0.8rem; padding: 0.6rem; background: #fef2f2;
+      border-left: 4px solid var(--caps-red); border-radius: 0 6px 6px 0;
+    }
+    .refresh-note {
+      font-size: 0.75rem; color: var(--gray-600); margin-top: 0.3rem;
+    }
+    footer {
+      text-align: center; padding: 1.5rem; color: var(--gray-600); font-size: 0.8rem;
+    }
+    footer a { color: var(--caps-red); text-decoration: none; }
+    @media (max-width: 640px) {
+      header h1 { font-size: 1.5rem; }
+      .odds-body { gap: 1.5rem; }
+      .record-bar { gap: 1rem; font-size: 0.85rem; }
+      thead th, tbody td { padding: 0.5rem 0.6rem; font-size: 0.8rem; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Washington Capitals</h1>
+    <div class="subtitle">2026 Playoff Race Tracker</div>
+  </header>
+  <div class="record-bar" id="record-bar">
+    <span class="loading"><span class="spinner"></span> Loading...</span>
+  </div>
+  <div class="container">
+    <div id="odds-section"></div>
+    <div id="wildcard-section"></div>
+    <div id="schedule-section"></div>
+    <div id="analysis-section"></div>
+  </div>
+  <footer>
+    Built by <a href="https://github.com/PaulDuvall/">Paul Duvall</a>
+    &middot; Data from <a href="https://api-web.nhle.com">NHL API</a> &amp;
+    <a href="https://moneypuck.com">MoneyPuck</a>
+    &middot; <span id="updated-at">Loading...</span>
+    <div class="refresh-note">Auto-refreshes every 5 minutes</div>
+  </footer>
+
+  <script>
+    const CIRCUMFERENCE = 408;
+    const KEY_GAME_THRESHOLD = 88;
+
+    document.addEventListener('DOMContentLoaded', loadData);
+    setInterval(loadData, 5 * 60 * 1000);
+
+    async function loadData() {
+      try {
+        const res = await fetch('/api/data');
+        if (!res.ok) throw new Error('API returned ' + res.status);
+        renderPage(await res.json());
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    function showError(msg) {
+      document.getElementById('odds-section').innerHTML =
+        '<div class="card"><div class="error-msg">Failed to load data: ' +
+        escapeHtml(msg) + '</div></div>';
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function renderPage(data) {
+      renderRecordBar(data.caps);
+      renderOdds(data.playoffOdds);
+      renderWildcard(data.wildcardRace);
+      renderSchedule(data.remainingGames, data.caps);
+      renderAnalysis(data.remainingGames);
+      renderTimestamp(data.updatedAt);
+    }
+
+    function renderRecordBar(caps) {
+      if (!caps) return;
+      const diff = caps.goalDifferential >= 0
+        ? '+' + caps.goalDifferential
+        : String(caps.goalDifferential);
+      document.getElementById('record-bar').innerHTML =
+        '<span>' + caps.wins + '-' + caps.losses + '-' + caps.otLosses + '</span>' +
+        '<span>' + caps.points + ' PTS</span>' +
+        '<span>' + caps.gamesPlayed + ' GP</span>' +
+        '<span>' + caps.remaining + ' Games Left</span>' +
+        '<span>Goal Diff: ' + diff + '</span>';
+    }
+
+    function formatPct(val) {
+      return (val * 100).toFixed(1) + '%';
+    }
+
+    function oddsScenarioLine(label, odds) {
+      if (!odds) return '';
+      return '<div>' + label + ': <strong>' + formatPct(odds.makePlayoffs) + '</strong></div>';
+    }
+
+    function renderOdds(odds) {
+      if (!odds) {
+        document.getElementById('odds-section').innerHTML =
+          '<div class="card"><div class="card-header">Playoff Probability</div>' +
+          '<div class="loading">Odds data unavailable</div></div>';
+        return;
+      }
+      const all = odds.ALL || {};
+      const pct = all.makePlayoffs || 0;
+      const offset = CIRCUMFERENCE - (CIRCUMFERENCE * pct);
+      const projected = all.projectedPoints ? all.projectedPoints.toFixed(1) : 'N/A';
+
+      document.getElementById('odds-section').innerHTML =
+        '<div class="card"><div class="card-header">Playoff Probability</div>' +
+        '<div class="odds-body">' +
+        renderDonut(pct, offset) +
+        '<div class="odds-detail">' +
+        '<div>Projected Final Points: <strong>' + projected + '</strong></div>' +
+        oddsScenarioLine('Win Next (REG)', odds.WINREG) +
+        oddsScenarioLine('Win Next (OT)', odds.WINOT) +
+        oddsScenarioLine('Lose Next (OT)', odds.LOSSOT) +
+        oddsScenarioLine('Lose Next (REG)', odds.LOSSREG) +
+        '<div style="margin-top:0.5rem;font-size:0.8rem;color:var(--gray-600)">Source: MoneyPuck simulation model</div>' +
+        '</div></div></div>';
+    }
+
+    function renderDonut(pct, offset) {
+      return '<div class="odds-ring">' +
+        '<svg viewBox="0 0 148 148">' +
+        '<circle class="bg" cx="74" cy="74" r="65"/>' +
+        '<circle class="fill" cx="74" cy="74" r="65" style="stroke-dashoffset:' + offset + '"/>' +
+        '</svg>' +
+        '<div class="label"><div class="pct">' + formatPct(pct) + '</div>' +
+        '<div class="pct-label">Make Playoffs</div></div></div>';
+    }
+
+    function renderWildcard(teams) {
+      if (!teams || teams.length === 0) return;
+      let rows = '';
+      teams.forEach(function(t, i) {
+        const cls = [
+          t.isCaps ? 'caps-row' : '',
+          i === 1 ? 'playoff-line' : '',
+        ].filter(Boolean).join(' ');
+        const status = t.inPlayoffs
+          ? '<span class="in-playoff">IN</span>'
+          : '<span class="out-playoff">OUT</span>';
+        rows += '<tr class="' + cls + '">' +
+          '<td style="text-align:center">' + t.position + '</td>' +
+          '<td>' + escapeHtml(t.name) + '</td>' +
+          '<td><strong>' + t.points + '</strong></td>' +
+          '<td>' + t.gamesPlayed + '</td>' +
+          '<td>' + t.wins + '-' + t.losses + '-' + t.otLosses + '</td>' +
+          '<td>' + t.remaining + '</td>' +
+          '<td>' + status + '</td></tr>';
+      });
+      document.getElementById('wildcard-section').innerHTML =
+        '<div class="card"><div class="card-header">Eastern Conference Wild Card Race</div>' +
+        '<table><thead><tr>' +
+        '<th>Pos</th><th>Team</th><th>PTS</th><th>GP</th><th>W-L-OTL</th><th>Left</th><th>Status</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+    }
+
+    function formatGameDate(dateStr) {
+      const d = new Date(dateStr + 'T12:00:00');
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    function formatGameTime(utcStr) {
+      const d = new Date(utcStr);
+      return d.toLocaleTimeString('en-US', {
+        hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+      });
+    }
+
+    function renderScheduleRow(g, index, gamesPlayed) {
+      const gameNum = gamesPlayed + index + 1;
+      const isKey = g.opponent.points >= KEY_GAME_THRESHOLD;
+      const opp = g.opponent;
+      const tag = isKey ? ' <span class="tag-critical">Key Game</span>' : '';
+      const loc = g.isHome
+        ? '<span class="badge badge-home">Home</span>'
+        : '<span class="badge badge-away">Away</span>';
+      return '<tr class="' + (isKey ? 'key-game' : '') + '">' +
+        '<td class="game-num">' + gameNum + '</td>' +
+        '<td>' + formatGameDate(g.date) + '</td>' +
+        '<td>' + escapeHtml(opp.name) +
+        ' <span class="opp-pts">' + opp.points + ' pts</span>' + tag + '</td>' +
+        '<td>' + loc + '</td>' +
+        '<td>' + formatGameTime(g.startTime) + '</td>' +
+        '<td>' + opp.wins + '-' + opp.losses + '-' + opp.otLosses + '</td></tr>';
+    }
+
+    function renderSchedule(games, caps) {
+      if (!games || games.length === 0) {
+        document.getElementById('schedule-section').innerHTML =
+          '<div class="card"><div class="card-header">Remaining Games</div>' +
+          '<div class="loading">No remaining games</div></div>';
+        return;
+      }
+      const gp = caps ? caps.gamesPlayed : 0;
+      let rows = '';
+      games.forEach(function(g, i) { rows += renderScheduleRow(g, i, gp); });
+      document.getElementById('schedule-section').innerHTML =
+        '<div class="card"><div class="card-header">Remaining ' + games.length + ' Games</div>' +
+        '<table><thead><tr>' +
+        '<th>#</th><th>Date</th><th>Opponent</th><th>Loc</th><th>Time</th><th>Opp Record</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+    }
+
+    function countKeyGames(games) {
+      return games.filter(function(g) { return g.opponent.points >= KEY_GAME_THRESHOLD; }).length;
+    }
+
+    function renderAnalysis(games) {
+      if (!games || games.length === 0) return;
+      const easy = games.filter(function(g) { return g.opponent.points < 80; });
+      const hard = games.filter(function(g) { return g.opponent.points >= 88; });
+      const keyCount = countKeyGames(games);
+
+      document.getElementById('analysis-section').innerHTML =
+        '<div class="card"><div class="card-header">Schedule Analysis</div>' +
+        '<div class="analysis">' +
+        '<p><strong>Favorable:</strong> ' + easy.length +
+        ' games against sub-80 point teams offer realistic points.</p>' +
+        '<p style="margin-top:0.5rem"><strong>Tough:</strong> ' + hard.length +
+        ' games against 88+ point opponents.</p>' +
+        '<p style="margin-top:0.5rem"><strong>Key Games:</strong> ' + keyCount +
+        ' of ' + games.length + ' remaining games are against playoff-caliber opponents.</p>' +
+        '<div class="analysis-callout"><strong>Must-win stretch:</strong> ' +
+        'The Caps likely need to go ' + games.length + '-0 or close to it, and need ' +
+        'teams above them to falter. Every regulation loss is potentially fatal.</div>' +
+        '</div></div>';
+    }
+
+    function renderTimestamp(iso) {
+      if (!iso) return;
+      const d = new Date(iso);
+      document.getElementById('updated-at').textContent =
+        'Updated ' + d.toLocaleString();
+    }
+  </script>
+</body>
+</html>
