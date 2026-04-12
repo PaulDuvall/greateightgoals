@@ -395,11 +395,26 @@
           : capsLeft <= 3
             ? 'Caps must win all <strong>' + capsLeft + ' remaining games</strong>' + regNote
             : 'Caps must win nearly every remaining game' + regNote;
-        var thirdLoseText = thirdLeft === 1
-          ? thirdName + ' must <strong>lose their final game</strong>'
-          : thirdLeft <= 3
-            ? thirdName + ' needs to lose at least some of their <strong>' + thirdLeft + ' remaining games</strong>'
-            : 'Teams above them in the Metro — particularly ' + thirdName + ' — need to lose several of their remaining games';
+        var capsMaxPts = s.capsMaxPoints || 0;
+        var thirdPts = s.thirdPlacePoints || 0;
+        var holdsTB = s.capsHoldTiebreaker;
+        var thirdMaxAllowed = holdsTB ? capsMaxPts : capsMaxPts - 1;
+        var thirdMustLose = Math.ceil((thirdPts + thirdLeft * 2 - thirdMaxAllowed) / 2);
+        var maxOTLosses = thirdPts + thirdLeft - thirdMaxAllowed;
+        if (maxOTLosses < 0) maxOTLosses = 0;
+        var thirdLoseText;
+        if (thirdMustLose >= thirdLeft) {
+          var otNote = holdsTB && maxOTLosses > 0
+            ? ' (at most ' + (maxOTLosses === 1 ? 'one' : maxOTLosses) + ' can be an OT loss)'
+            : ' in regulation';
+          thirdLoseText = thirdName + ' must <strong>lose ' +
+            (thirdLeft === 1 ? 'their final game' : 'both remaining games') +
+            '</strong>' + otNote;
+        } else if (thirdMustLose === 1) {
+          thirdLoseText = thirdName + ' must <strong>lose at least one</strong> of their ' + thirdLeft + ' remaining games';
+        } else {
+          thirdLoseText = thirdName + ' must <strong>lose at least ' + thirdMustLose + '</strong> of their ' + thirdLeft + ' remaining games';
+        }
         scenarioHtml += '<div class="analysis-callout" style="margin-top:0.5rem">' +
           '<strong>What needs to happen:</strong><br>' +
           '1. ' + capsWinText + '.<br>' +
