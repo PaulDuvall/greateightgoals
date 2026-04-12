@@ -388,10 +388,10 @@
         var thirdLeft = s.thirdPlaceRemaining || 0;
         var thirdName = escapeHtml(s.thirdPlaceTeam || 'the 3rd-place team');
         var capsWinText = capsLeft === 1
-          ? 'Caps must <strong>win their final game</strong> in regulation'
+          ? 'Caps must <strong>win their final game</strong>'
           : capsLeft <= 3
-            ? 'Caps must win all <strong>' + capsLeft + ' remaining games</strong> in regulation'
-            : 'Caps must win nearly every remaining game, prioritizing <strong>regulation wins</strong> (tiebreaker)';
+            ? 'Caps must win all <strong>' + capsLeft + ' remaining games</strong>'
+            : 'Caps must win nearly every remaining game';
         var thirdLoseText = thirdLeft === 1
           ? thirdName + ' must <strong>lose their final game</strong>'
           : thirdLeft <= 3
