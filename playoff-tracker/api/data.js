@@ -111,6 +111,12 @@ function computeDivisionRace(teams) {
       thirdPlaceRemaining: thirdPlace ? thirdPlace.remaining : null,
       capsRemaining: capsEntry ? capsEntry.remaining : null,
       capsMaxPoints: capsEntry ? capsEntry.maxPossible : null,
+      capsRegWins: capsEntry ? capsEntry.regulationWins : null,
+      thirdPlaceRegWins: thirdPlace ? thirdPlace.regulationWins : null,
+      capsHoldTiebreaker:
+        capsEntry && thirdPlace
+          ? capsEntry.regulationWins > thirdPlace.regulationWins
+          : null,
     },
   };
 }
