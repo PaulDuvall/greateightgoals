@@ -189,9 +189,9 @@
     function renderPage(data) {
       renderRecordBar(data.caps);
       renderOdds(data.playoffOdds);
-      renderWildcard(data.wildcardRace);
+      renderDivision(data.divisionRace);
       renderSchedule(data.remainingGames, data.caps);
-      renderAnalysis(data.remainingGames);
+      renderAnalysis(data.remainingGames, data.divisionRace);
       renderTimestamp(data.updatedAt);
     }
 
@@ -253,15 +253,17 @@
         '<div class="pct-label">Make Playoffs</div></div></div>';
     }
 
-    function renderWildcard(teams) {
-      if (!teams || teams.length === 0) return;
-      let rows = '';
+    function renderDivision(divisionRace) {
+      if (!divisionRace || !divisionRace.standings || divisionRace.standings.length === 0) return;
+      var teams = divisionRace.standings;
+      var scenario = divisionRace.capsScenario;
+      var rows = '';
       teams.forEach(function(t, i) {
-        const cls = [
+        var cls = [
           t.isCaps ? 'caps-row' : '',
-          i === 1 ? 'playoff-line' : '',
+          i === 2 ? 'playoff-line' : '',
         ].filter(Boolean).join(' ');
-        const status = t.inPlayoffs
+        var status = t.inPlayoffs
           ? '<span class="in-playoff">IN</span>'
           : '<span class="out-playoff">OUT</span>';
         rows += '<tr class="' + cls + '">' +
@@ -271,13 +273,30 @@
           '<td>' + t.gamesPlayed + '</td>' +
           '<td>' + t.wins + '-' + t.losses + '-' + t.otLosses + '</td>' +
           '<td>' + t.remaining + '</td>' +
+          '<td>' + t.maxPossible + '</td>' +
           '<td>' + status + '</td></tr>';
       });
+      var scenarioHtml = '';
+      if (scenario) {
+        scenarioHtml = '<div class="analysis" style="border-top:1px solid var(--gray-200)">';
+        if (scenario.pointsBack > 0) {
+          scenarioHtml += '<p><strong>' + scenario.pointsBack + ' points back</strong> of 3rd place ' +
+            escapeHtml(scenario.thirdPlaceTeam || '') + ' (' + scenario.thirdPlacePoints + ' pts)</p>';
+        } else {
+          scenarioHtml += '<p>Currently <strong>in a playoff spot</strong></p>';
+        }
+        if (scenario.capsMaxPoints !== null) {
+          scenarioHtml += '<p style="margin-top:0.4rem">Caps max possible points: <strong>' +
+            scenario.capsMaxPoints + '</strong></p>';
+        }
+        scenarioHtml += '</div>';
+      }
       document.getElementById('wildcard-section').innerHTML =
-        '<div class="card"><div class="card-header">Eastern Conference Wild Card Race</div>' +
+        '<div class="card"><div class="card-header">Metropolitan Division Standings</div>' +
         '<table><thead><tr>' +
-        '<th>Pos</th><th>Team</th><th>PTS</th><th>GP</th><th>W-L-OTL</th><th>Left</th><th>Status</th>' +
-        '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+        '<th>Pos</th><th>Team</th><th>PTS</th><th>GP</th><th>W-L-OTL</th><th>Left</th><th>Max PTS</th><th>Status</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table>' +
+        scenarioHtml + '</div>';
     }
 
     function formatGameDate(dateStr) {
@@ -331,24 +350,60 @@
       return games.filter(function(g) { return g.opponent.points >= KEY_GAME_THRESHOLD; }).length;
     }
 
-    function renderAnalysis(games) {
+    function renderAnalysis(games, divisionRace) {
       if (!games || games.length === 0) return;
-      const easy = games.filter(function(g) { return g.opponent.points < 80; });
-      const hard = games.filter(function(g) { return g.opponent.points >= 88; });
-      const keyCount = countKeyGames(games);
+      var easy = games.filter(function(g) { return g.opponent.points < 80; });
+      var hard = games.filter(function(g) { return g.opponent.points >= 88; });
+      var keyCount = countKeyGames(games);
+      var home = games.filter(function(g) { return g.isHome; });
+      var away = games.filter(function(g) { return !g.isHome; });
+
+      var scenarioHtml = '';
+      if (divisionRace && divisionRace.capsScenario) {
+        var s = divisionRace.capsScenario;
+        scenarioHtml += '<div class="analysis-callout" style="margin-top:1rem">' +
+          '<strong>Division Path to Playoffs:</strong><br>';
+        if (s.pointsBack > 0) {
+          scenarioHtml += 'The Caps trail ' + escapeHtml(s.thirdPlaceTeam || '3rd place') +
+            ' by <strong>' + s.pointsBack + ' points</strong>. ';
+          var winsNeeded = Math.ceil(s.pointsBack / 2);
+          scenarioHtml += 'They need to close a ' + s.pointsBack +
+            '-point gap, meaning they must gain roughly <strong>' + winsNeeded +
+            ' more wins</strong> than ' + escapeHtml(s.thirdPlaceTeam || '3rd place') +
+            ' over the remaining games. ';
+        } else {
+          scenarioHtml += 'The Caps currently hold a <strong>playoff spot</strong>. ';
+        }
+        if (s.capsMaxPoints !== null && s.thirdPlacePoints !== null) {
+          scenarioHtml += 'With a max of <strong>' + s.capsMaxPoints +
+            ' points</strong> possible, ';
+          if (s.capsMaxPoints > s.thirdPlacePoints) {
+            scenarioHtml += 'they can still mathematically catch 3rd place. ';
+          } else {
+            scenarioHtml += 'they are running out of runway. ';
+          }
+        }
+        scenarioHtml += '</div>';
+        scenarioHtml += '<div class="analysis-callout" style="margin-top:0.5rem">' +
+          '<strong>What needs to happen:</strong><br>' +
+          '1. Caps must win nearly every remaining game, prioritizing <strong>regulation wins</strong> (tiebreaker).<br>' +
+          '2. Teams above them in the Metro — particularly ' +
+          escapeHtml(s.thirdPlaceTeam || 'the 3rd-place team') +
+          ' — need to lose several of their remaining games.<br>' +
+          '3. Head-to-head games against Metro rivals are worth double: a Caps win gains 2 points AND denies 2 from a direct competitor.</div>';
+      }
 
       document.getElementById('analysis-section').innerHTML =
         '<div class="card"><div class="card-header">Schedule Analysis</div>' +
         '<div class="analysis">' +
-        '<p><strong>Favorable:</strong> ' + easy.length +
+        '<p><strong>Remaining:</strong> ' + home.length + ' home / ' + away.length + ' away games.</p>' +
+        '<p style="margin-top:0.5rem"><strong>Favorable:</strong> ' + easy.length +
         ' games against sub-80 point teams offer realistic points.</p>' +
         '<p style="margin-top:0.5rem"><strong>Tough:</strong> ' + hard.length +
         ' games against 88+ point opponents.</p>' +
         '<p style="margin-top:0.5rem"><strong>Key Games:</strong> ' + keyCount +
         ' of ' + games.length + ' remaining games are against playoff-caliber opponents.</p>' +
-        '<div class="analysis-callout"><strong>Must-win stretch:</strong> ' +
-        'The Caps likely need to go ' + games.length + '-0 or close to it, and need ' +
-        'teams above them to falter. Every regulation loss is potentially fatal.</div>' +
+        scenarioHtml +
         '</div></div>';
     }
 

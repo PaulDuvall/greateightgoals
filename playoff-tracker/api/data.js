@@ -26,7 +26,7 @@ async function buildResponse() {
   const standingsMap = buildStandingsMap(standings.standings);
   return {
     caps: standingsMap[TEAM] || null,
-    wildcardRace: computeWildcardRace(standings.standings),
+    divisionRace: computeDivisionRace(standings.standings),
     remainingGames: computeRemainingGames(schedule, standingsMap),
     playoffOdds: parsePlayoffOdds(oddsCsv),
     updatedAt: new Date().toISOString(),
@@ -77,34 +77,40 @@ function formatTeam(t) {
   };
 }
 
-function findDivisionQualifiers(teams) {
-  const divisions = { M: [], A: [] };
-  teams.forEach((t) => divisions[t.divisionAbbrev]?.push(t));
-  Object.values(divisions).forEach((arr) =>
-    arr.sort((a, b) => b.points - a.points)
-  );
-  return new Set([
-    ...divisions.M.slice(0, 3).map((t) => t.teamAbbrev.default),
-    ...divisions.A.slice(0, 3).map((t) => t.teamAbbrev.default),
-  ]);
-}
-
-function toWildcardEntry(t, index) {
+function toDivisionEntry(t, index) {
+  const caps = formatTeam(t);
+  const maxPossible = caps.points + caps.remaining * 2;
   return {
-    ...formatTeam(t),
-    position: index < 2 ? `WC${index + 1}` : String(index + 7),
-    inPlayoffs: index < 2,
+    ...caps,
+    position: index + 1,
+    inPlayoffs: index < 3,
     isCaps: t.teamAbbrev.default === TEAM,
+    maxPossible,
   };
 }
 
-function computeWildcardRace(teams) {
-  const eastern = teams.filter((t) => t.conferenceAbbrev === 'E');
-  const qualified = findDivisionQualifiers(eastern);
-  return eastern
-    .filter((t) => !qualified.has(t.teamAbbrev.default))
-    .sort((a, b) => b.points - a.points)
-    .map(toWildcardEntry);
+function computeDivisionRace(teams) {
+  const metro = teams.filter((t) => t.divisionAbbrev === 'M');
+  metro.sort((a, b) => b.points - a.points);
+  const entries = metro.map(toDivisionEntry);
+  const capsEntry = entries.find((e) => e.isCaps);
+  const thirdPlace = entries[2] || null;
+  const magicNumber =
+    capsEntry && thirdPlace
+      ? thirdPlace.points + thirdPlace.remaining * 2 - capsEntry.points + 1
+      : null;
+  const pointsBack =
+    capsEntry && thirdPlace ? thirdPlace.points - capsEntry.points : null;
+  return {
+    standings: entries,
+    capsScenario: {
+      pointsBack: pointsBack > 0 ? pointsBack : 0,
+      magicNumber,
+      thirdPlaceTeam: thirdPlace ? thirdPlace.name : null,
+      thirdPlacePoints: thirdPlace ? thirdPlace.points : null,
+      capsMaxPoints: capsEntry ? capsEntry.maxPossible : null,
+    },
+  };
 }
 
 function mapGameToEntry(g, standingsMap) {
