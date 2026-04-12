@@ -384,12 +384,23 @@
           }
         }
         scenarioHtml += '</div>';
+        var capsLeft = s.capsRemaining || games.length;
+        var thirdLeft = s.thirdPlaceRemaining || 0;
+        var thirdName = escapeHtml(s.thirdPlaceTeam || 'the 3rd-place team');
+        var capsWinText = capsLeft === 1
+          ? 'Caps must <strong>win their final game</strong> in regulation'
+          : capsLeft <= 3
+            ? 'Caps must win all <strong>' + capsLeft + ' remaining games</strong> in regulation'
+            : 'Caps must win nearly every remaining game, prioritizing <strong>regulation wins</strong> (tiebreaker)';
+        var thirdLoseText = thirdLeft === 1
+          ? thirdName + ' must <strong>lose their final game</strong>'
+          : thirdLeft <= 3
+            ? thirdName + ' needs to lose at least some of their <strong>' + thirdLeft + ' remaining games</strong>'
+            : 'Teams above them in the Metro — particularly ' + thirdName + ' — need to lose several of their remaining games';
         scenarioHtml += '<div class="analysis-callout" style="margin-top:0.5rem">' +
           '<strong>What needs to happen:</strong><br>' +
-          '1. Caps must win nearly every remaining game, prioritizing <strong>regulation wins</strong> (tiebreaker).<br>' +
-          '2. Teams above them in the Metro — particularly ' +
-          escapeHtml(s.thirdPlaceTeam || 'the 3rd-place team') +
-          ' — need to lose several of their remaining games.<br>' +
+          '1. ' + capsWinText + '.<br>' +
+          '2. ' + thirdLoseText + '.<br>' +
           '3. Head-to-head games against Metro rivals are worth double: a Caps win gains 2 points AND denies 2 from a direct competitor.</div>';
       }
 

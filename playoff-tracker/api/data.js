@@ -108,6 +108,8 @@ function computeDivisionRace(teams) {
       magicNumber,
       thirdPlaceTeam: thirdPlace ? thirdPlace.name : null,
       thirdPlacePoints: thirdPlace ? thirdPlace.points : null,
+      thirdPlaceRemaining: thirdPlace ? thirdPlace.remaining : null,
+      capsRemaining: capsEntry ? capsEntry.remaining : null,
       capsMaxPoints: capsEntry ? capsEntry.maxPossible : null,
     },
   };
