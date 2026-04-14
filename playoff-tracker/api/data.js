@@ -117,8 +117,14 @@ function computeDivisionRace(teams) {
         capsEntry && thirdPlace
           ? capsEntry.regulationWins > thirdPlace.regulationWins
           : null,
+      eliminated: computeEliminated(capsEntry, thirdPlace),
     },
   };
+}
+
+function computeEliminated(capsEntry, thirdPlace) {
+  if (!capsEntry || !thirdPlace) return false;
+  return capsEntry.maxPossible < thirdPlace.points;
 }
 
 function mapGameToEntry(g, standingsMap) {

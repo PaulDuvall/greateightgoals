@@ -285,7 +285,9 @@
         } else {
           scenarioHtml += '<p>Currently <strong>in a playoff spot</strong></p>';
         }
-        if (scenario.capsMaxPoints !== null) {
+        if (scenario.eliminated) {
+          scenarioHtml += '<p style="margin-top:0.4rem;color:var(--caps-red)"><strong>Mathematically eliminated</strong> from top-3 division spot</p>';
+        } else if (scenario.capsMaxPoints !== null) {
           scenarioHtml += '<p style="margin-top:0.4rem">Caps max possible points: <strong>' +
             scenario.capsMaxPoints + '</strong></p>';
         }
@@ -351,7 +353,8 @@
     }
 
     function renderAnalysis(games, divisionRace) {
-      if (!games || games.length === 0) return;
+      if ((!games || games.length === 0) && !(divisionRace && divisionRace.capsScenario)) return;
+      games = games || [];
       var easy = games.filter(function(g) { return g.opponent.points < 80; });
       var hard = games.filter(function(g) { return g.opponent.points >= 88; });
       var keyCount = countKeyGames(games);
@@ -361,65 +364,90 @@
       var scenarioHtml = '';
       if (divisionRace && divisionRace.capsScenario) {
         var s = divisionRace.capsScenario;
+        var capsLeft = s.capsRemaining || games.length;
+        var thirdLeft = s.thirdPlaceRemaining || 0;
+        var thirdName = escapeHtml(s.thirdPlaceTeam || 'the 3rd-place team');
+
         scenarioHtml += '<div class="analysis-callout" style="margin-top:1rem">' +
           '<strong>Division Path to Playoffs:</strong><br>';
-        if (s.pointsBack > 0) {
-          scenarioHtml += 'The Caps trail ' + escapeHtml(s.thirdPlaceTeam || '3rd place') +
+
+        if (capsLeft === 0 && thirdLeft === 0) {
+          if (s.pointsBack <= 0) {
+            scenarioHtml += 'The regular season is over. The Caps <strong>clinched a playoff spot</strong>!';
+          } else {
+            scenarioHtml += 'The regular season is over. The Caps <strong>did not qualify</strong> for the playoffs.';
+          }
+        } else if (s.eliminated) {
+          scenarioHtml += 'The Caps have been <strong>mathematically eliminated</strong> from a top-3 ' +
+            'division spot. ';
+          if (s.capsMaxPoints !== null) {
+            scenarioHtml += 'Their maximum possible points (' + s.capsMaxPoints +
+              ') cannot overtake ' + thirdName + ' (' + s.thirdPlacePoints + ' pts). ';
+          }
+        } else if (s.pointsBack > 0) {
+          scenarioHtml += 'The Caps trail ' + thirdName +
             ' by <strong>' + s.pointsBack + ' points</strong>. ';
           var winsNeeded = Math.ceil(s.pointsBack / 2);
           scenarioHtml += 'They need to close a ' + s.pointsBack +
             '-point gap, meaning they must gain roughly <strong>' + winsNeeded +
-            ' more wins</strong> than ' + escapeHtml(s.thirdPlaceTeam || '3rd place') +
+            ' more wins</strong> than ' + thirdName +
             ' over the remaining games. ';
+          if (s.capsMaxPoints !== null && s.thirdPlacePoints !== null) {
+            scenarioHtml += 'With a max of <strong>' + s.capsMaxPoints +
+              ' points</strong> possible, they can still mathematically catch 3rd place. ';
+          }
         } else {
           scenarioHtml += 'The Caps currently hold a <strong>playoff spot</strong>. ';
-        }
-        if (s.capsMaxPoints !== null && s.thirdPlacePoints !== null) {
-          scenarioHtml += 'With a max of <strong>' + s.capsMaxPoints +
-            ' points</strong> possible, ';
-          if (s.capsMaxPoints > s.thirdPlacePoints) {
-            scenarioHtml += 'they can still mathematically catch 3rd place. ';
-          } else {
-            scenarioHtml += 'they are running out of runway. ';
+          if (s.magicNumber !== null && s.magicNumber > 0) {
+            scenarioHtml += 'Magic number to clinch: <strong>' + s.magicNumber + '</strong>. ';
           }
         }
         scenarioHtml += '</div>';
-        var capsLeft = s.capsRemaining || games.length;
-        var thirdLeft = s.thirdPlaceRemaining || 0;
-        var thirdName = escapeHtml(s.thirdPlaceTeam || 'the 3rd-place team');
-        var regNote = s.capsHoldTiebreaker
-          ? ' (any win counts — Caps hold the regulation wins tiebreaker, ' + s.capsRegWins + ' to ' + s.thirdPlaceRegWins + ')'
-          : ' in <strong>regulation</strong> (Caps trail in the regulation wins tiebreaker, ' + s.capsRegWins + ' to ' + s.thirdPlaceRegWins + ')';
-        var capsWinText = capsLeft === 1
-          ? 'Caps must <strong>win their final game</strong>' + regNote
-          : capsLeft <= 3
-            ? 'Caps must win all <strong>' + capsLeft + ' remaining games</strong>' + regNote
-            : 'Caps must win nearly every remaining game' + regNote;
-        var capsMaxPts = s.capsMaxPoints || 0;
-        var thirdPts = s.thirdPlacePoints || 0;
-        var holdsTB = s.capsHoldTiebreaker;
-        var thirdMaxAllowed = holdsTB ? capsMaxPts : capsMaxPts - 1;
-        var thirdMustLose = Math.ceil((thirdPts + thirdLeft * 2 - thirdMaxAllowed) / 2);
-        var maxOTLosses = thirdPts + thirdLeft - thirdMaxAllowed;
-        if (maxOTLosses < 0) maxOTLosses = 0;
-        var thirdLoseText;
-        if (thirdMustLose >= thirdLeft) {
-          var otNote = holdsTB && maxOTLosses > 0
-            ? ' (at most ' + (maxOTLosses === 1 ? 'one' : maxOTLosses) + ' can be an OT loss)'
-            : ' in regulation';
-          thirdLoseText = thirdName + ' must <strong>lose ' +
-            (thirdLeft === 1 ? 'their final game' : 'both remaining games') +
-            '</strong>' + otNote;
-        } else if (thirdMustLose === 1) {
-          thirdLoseText = thirdName + ' must <strong>lose at least one</strong> of their ' + thirdLeft + ' remaining games';
-        } else {
-          thirdLoseText = thirdName + ' must <strong>lose at least ' + thirdMustLose + '</strong> of their ' + thirdLeft + ' remaining games';
+
+        if (!s.eliminated && capsLeft > 0 && (s.pointsBack > 0 || s.magicNumber > 0)) {
+          var regNote = s.capsHoldTiebreaker
+            ? ' (any win counts — Caps hold the regulation wins tiebreaker, ' + s.capsRegWins + ' to ' + s.thirdPlaceRegWins + ')'
+            : ' in <strong>regulation</strong> (Caps trail in the regulation wins tiebreaker, ' + s.capsRegWins + ' to ' + s.thirdPlaceRegWins + ')';
+          var capsWinText;
+          if (s.pointsBack <= 0) {
+            capsWinText = 'Caps need <strong>' + Math.ceil(s.magicNumber / 2) +
+              ' more wins</strong> (or combination of wins and ' + thirdName + ' losses) to clinch';
+          } else if (capsLeft === 1) {
+            capsWinText = 'Caps must <strong>win their final game</strong>' + regNote;
+          } else if (capsLeft <= 3) {
+            capsWinText = 'Caps must win all <strong>' + capsLeft + ' remaining games</strong>' + regNote;
+          } else {
+            capsWinText = 'Caps must win nearly every remaining game' + regNote;
+          }
+          var capsMaxPts = s.capsMaxPoints || 0;
+          var thirdPts = s.thirdPlacePoints || 0;
+          var holdsTB = s.capsHoldTiebreaker;
+          var thirdMaxAllowed = holdsTB ? capsMaxPts : capsMaxPts - 1;
+          var thirdMustLose = Math.ceil((thirdPts + thirdLeft * 2 - thirdMaxAllowed) / 2);
+          var maxOTLosses = thirdPts + thirdLeft - thirdMaxAllowed;
+          if (maxOTLosses < 0) maxOTLosses = 0;
+          var thirdLoseText;
+          if (s.pointsBack <= 0) {
+            thirdLoseText = 'Any combination of Caps points gained and ' + thirdName +
+              ' points lost totaling <strong>' + s.magicNumber + '</strong> clinches the spot';
+          } else if (thirdMustLose >= thirdLeft) {
+            var otNote = holdsTB && maxOTLosses > 0
+              ? ' (at most ' + (maxOTLosses === 1 ? 'one' : maxOTLosses) + ' can be an OT loss)'
+              : ' in regulation';
+            thirdLoseText = thirdName + ' must <strong>lose ' +
+              (thirdLeft === 1 ? 'their final game' : 'all ' + thirdLeft + ' remaining games') +
+              '</strong>' + otNote;
+          } else if (thirdMustLose === 1) {
+            thirdLoseText = thirdName + ' must <strong>lose at least one</strong> of their ' + thirdLeft + ' remaining games';
+          } else {
+            thirdLoseText = thirdName + ' must <strong>lose at least ' + thirdMustLose + '</strong> of their ' + thirdLeft + ' remaining games';
+          }
+          scenarioHtml += '<div class="analysis-callout" style="margin-top:0.5rem">' +
+            '<strong>What needs to happen:</strong><br>' +
+            '1. ' + capsWinText + '.<br>' +
+            '2. ' + thirdLoseText + '.<br>' +
+            '3. Head-to-head games against Metro rivals are worth double: a Caps win gains 2 points AND denies 2 from a direct competitor.</div>';
         }
-        scenarioHtml += '<div class="analysis-callout" style="margin-top:0.5rem">' +
-          '<strong>What needs to happen:</strong><br>' +
-          '1. ' + capsWinText + '.<br>' +
-          '2. ' + thirdLoseText + '.<br>' +
-          '3. Head-to-head games against Metro rivals are worth double: a Caps win gains 2 points AND denies 2 from a direct competitor.</div>';
       }
 
       document.getElementById('analysis-section').innerHTML =
